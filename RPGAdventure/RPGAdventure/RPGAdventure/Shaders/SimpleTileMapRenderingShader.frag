@@ -75,8 +75,8 @@ void main()
 	float divideAtScaleX = 64.0;
 	float divideAtScaleY = 64.0;
 	
-	divideAtScaleX = divideAtScaleX / numTilesOneGrid;
-	divideAtScaleY = divideAtScaleY / numTilesOneGrid;
+//	divideAtScaleX = divideAtScaleX / numTilesOneGrid;
+//	divideAtScaleY = divideAtScaleY / numTilesOneGrid;
 
 	divideAtScaleX = screenResolution.x / numTilesX;
 	divideAtScaleY = screenResolution.y / numTilesY;
@@ -86,13 +86,51 @@ void main()
 
 	float compareRemainder = 0.0;
 
-	if((modIntX > compareRemainder && modIntX <= compareRemainder + 0.8)|| (modIntY > compareRemainder && modIntY <= compareRemainder + 0.8))
+	float debugTileCoords = 1.0;
+	if(debugTileCoords == 0.0)
 	{
-		FragColor = vec4(vec3(0.0), 1.0);
+		if((modIntX > compareRemainder && modIntX <= compareRemainder + 0.8)|| (modIntY > compareRemainder && modIntY <= compareRemainder + 0.8))
+		{
+			FragColor = vec4(vec3(0.0), 1.0);
+		}
+		else
+		{
+			vec2 offset = vec2(divideAtScaleX, divideAtScaleY) * vec2(0.0, 0.0);
+
+			float offsetXCoord = gl_FragCoord.x + offset.x;
+			float offsetYCoord = gl_FragCoord.y + offset.y;
+
+			float modX = mod(offsetXCoord, divideAtScaleX);
+			float modY = mod(offsetYCoord, divideAtScaleY);
+
+			vec2 calculatedTextureCoords = vec2(modX, modY);
+			calculatedTextureCoords = calculatedTextureCoords / vec2(divideAtScaleX, divideAtScaleY);
+
+			vec2 texSize = vec2(10.0, 4.0);
+			float ratioOfTexDims = texSize.x / texSize.y;
+
+			vec2 incrementCellSize = 1.0 / (texSize);
+			vec2 remappedTexCoords = calculatedTextureCoords * incrementCellSize * vec2(1.0, -1.0);
+
+			vec2 tileIndex = vec2(1.0, 2.0);
+
+			vec2 remappedTexCoordsToTexture = remappedTexCoords + (tileIndex * incrementCellSize);
+
+			FragColor = vec4(texture(ourTexture, remappedTexCoordsToTexture));
+			//FragColor = vec4(texture(ourTexture, remappedTexCoords));
+			//FragColor = vec4(texture(ourTexture, calculatedTextureCoords));
+			//FragColor = vec4(1.0);
+		}
 	}
-	else
+	else if(debugTileCoords == 1.0)
 	{
-		vec2 offset = vec2(divideAtScaleX, divideAtScaleY) * vec2(0.0, 0.0f);
+//		divideAtScaleX = 64.0;
+//		divideAtScaleY = 64.0;
+
+//		float x = gl_FragCoord.x / divideAtScaleX;
+//		float y = gl_FragCoord.y / divideAtScaleY;
+
+		vec2 offset = vec2(divideAtScaleX, divideAtScaleY) * vec2(0.0, 0.0);
 
 		float offsetXCoord = gl_FragCoord.x + offset.x;
 		float offsetYCoord = gl_FragCoord.y + offset.y;
@@ -100,23 +138,30 @@ void main()
 		float modX = mod(offsetXCoord, divideAtScaleX);
 		float modY = mod(offsetYCoord, divideAtScaleY);
 
-		vec2 calculatedTextureCoords = vec2(modX, modY);
-		calculatedTextureCoords = calculatedTextureCoords / vec2(divideAtScaleX, divideAtScaleY);
+		float indexCoordX = (offsetXCoord - modX) / divideAtScaleX;
+		float indexCoordY = (offsetYCoord - modY) / divideAtScaleY;
 
-		vec2 texSize = vec2(10.0, 4.0);
-		float ratioOfTexDims = texSize.x / texSize.y;
+		indexCoordX = indexCoordX / numTilesX;
+		indexCoordY = indexCoordY / numTilesY;
 
-		vec2 incrementCellSize = 1.0 / (texSize);
-		vec2 remappedTexCoords = calculatedTextureCoords * incrementCellSize * vec2(1.0, -1.0);
+		//vec2 calculatedTextureCoords = vec2(modX, modY);
+		vec2 calculatedTextureCoords = vec2(indexCoordX, indexCoordY);
+		//calculatedTextureCoords = calculatedTextureCoords / vec2(divideAtScaleX, divideAtScaleY);
 
-		vec2 tileIndex = vec2(1.0, 2.0);
+//		float divX = offsetXCoord / divideAtScaleX;
+//		float divY = offsetYCoord / divideAtScaleY;
+//
+//		divX = divX / numTilesX;
+//		divY = divY / numTilesY;
+//		
+//		float modCompartmentalisedX = modX / numTilesX;
+//		float modCompartmentalisedY = modY / numTilesY;
 
-		vec2 remappedTexCoordsToTexture = remappedTexCoords + (tileIndex * incrementCellSize);
-
-		FragColor = vec4(texture(ourTexture, remappedTexCoordsToTexture));
-		//FragColor = vec4(texture(ourTexture, remappedTexCoords));
-		//FragColor = vec4(texture(ourTexture, calculatedTextureCoords));
-		//FragColor = vec4(1.0);
+		//FragColor = vec4(gl_FragCoord.x, gl_FragCoord.y, 0.0, 1.0);
+		//FragColor = vec4(x, y, 0.0, 1.0);
+		//FragColor = vec4(modX, modY, 0.0, 1.0);
+		//FragColor = vec4(divX, divY, 0.0, 1.0);
+		//FragColor = vec4(modCompartmentalisedX, modCompartmentalisedY, 0.0, 1.0);
+		FragColor = vec4(calculatedTextureCoords.x, calculatedTextureCoords.y, 0.0, 1.0);
 	}
-
 }
