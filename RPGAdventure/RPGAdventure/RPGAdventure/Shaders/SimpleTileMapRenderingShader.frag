@@ -10,9 +10,15 @@ out vec4 FragColor;
 uniform sampler2D ourTexture;
 
 void main()
-{    
-	float intX = floor(gl_FragCoord.x);
-	float intY = floor(gl_FragCoord.y);
+{
+	vec2 offset = cameraScreenPos - movementInPixels;
+	offset.y = offset.y * -1.0;
+
+	float offsetXCoord = gl_FragCoord.x + offset.x;
+	float offsetYCoord = gl_FragCoord.y + offset.y;
+
+	float intX = floor(offsetXCoord);
+	float intY = floor(offsetYCoord);
 
 	vec2 screenResolution = vec2(1280.0, 720.0);
 	float resolutionFraction = screenResolution.x / screenResolution.y;
@@ -45,7 +51,8 @@ void main()
 			{
 				//vec2 offset = vec2(divideAtScaleX, divideAtScaleY) * vec2(2.0);
 
-				vec2 offset = movementInPixels;
+				vec2 offset = cameraScreenPos - movementInPixels;
+				offset.y = offset.y * -1.0;
 
 				float offsetXCoord = gl_FragCoord.x + offset.x;
 				float offsetYCoord = gl_FragCoord.y + offset.y;
@@ -76,7 +83,8 @@ void main()
 		}
 		else if(debugTileCoords == 1.0)
 		{
-			vec2 offset = vec2(divideAtScaleX, divideAtScaleY) * vec2(0.0, 0.0);
+			vec2 offset = cameraScreenPos - movementInPixels;
+			offset.y = offset.y * -1.0;
 
 			float offsetXCoord = gl_FragCoord.x + offset.x;
 			float offsetYCoord = gl_FragCoord.y + offset.y;
@@ -87,8 +95,14 @@ void main()
 			float indexCoordX = (offsetXCoord - modX) / divideAtScaleX;
 			float indexCoordY = (offsetYCoord - modY) / divideAtScaleY;
 
-			indexCoordX = indexCoordX / numTilesX;
-			indexCoordY = indexCoordY / numTilesY;
+			float totalTilesX = 100;
+			float totalTilesY = 100;
+
+//			indexCoordX = indexCoordX / numTilesX;
+//			indexCoordY = indexCoordY / numTilesY;
+
+			indexCoordX = indexCoordX / totalTilesX;
+			indexCoordY = indexCoordY / totalTilesY;
 
 			vec2 calculatedTextureCoords = vec2(indexCoordX, indexCoordY);
 
