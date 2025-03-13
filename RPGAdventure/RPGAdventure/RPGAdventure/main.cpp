@@ -188,8 +188,22 @@ int main(void)
 
     //std::cout << "Starting Game Loop..." << std::endl;
 
-    Shader simpleShader = LoadShader(TextFormat("Shaders/SimpleTileMapRenderingShader.vert", GLSL_VERSION),
+    Shader simpleTileMapRenderingShader = LoadShader(TextFormat("Shaders/SimpleTileMapRenderingShader.vert", GLSL_VERSION),
         TextFormat("Shaders/SimpleTileMapRenderingShader.frag", GLSL_VERSION));
+
+    int cameraScreenPosInSimpleTileMapRenderingShader = GetShaderLocation(simpleTileMapRenderingShader, "cameraPosOnScreen");
+    Vector2 cameraScreenPos = GetWorldToScreen2D(camera->target, *camera);
+    SetShaderValue(simpleTileMapRenderingShader, cameraScreenPosInSimpleTileMapRenderingShader, &cameraScreenPos, SHADER_UNIFORM_VEC2);
+    
+
+    int cameraPosInSimpleTileMapRenderingShader = GetShaderLocation(simpleTileMapRenderingShader, "cameraPos");
+    Vector2 cameraPos = camera->target;
+    SetShaderValue(simpleTileMapRenderingShader, cameraPosInSimpleTileMapRenderingShader, &cameraPos, SHADER_UNIFORM_VEC2);
+
+    int movementInPixelsInSimpleTileMapRenderingShader = GetShaderLocation(simpleTileMapRenderingShader, "pixelMovement");
+    Vector2 movement = Vector2Zeros;
+    SetShaderValue(simpleTileMapRenderingShader, movementInPixelsInSimpleTileMapRenderingShader, &movement, SHADER_UNIFORM_VEC2);
+
 
     unsigned int quadVAO = 0;
     unsigned int quadVBO = 0;
@@ -232,20 +246,26 @@ int main(void)
         //PlayerMovementSystem.run();
         //CameraFollowSystem.run();
 
+        Vector2 curFrameMovement = Vector2Zeros;
+
         float speed = 100.0f;
         float deltaTime = GetFrameTime();
         Position* curPlayerPos = e_Player.get_mut<Position>();
         if (IsKeyDown(KEY_RIGHT)) {
             curPlayerPos->pos.x += speed * deltaTime;
+            curFrameMovement.x += speed * deltaTime;
         }
         if (IsKeyDown(KEY_LEFT)) {
             curPlayerPos->pos.x -= speed * deltaTime;
+            curFrameMovement.x -= speed * deltaTime;
         }
         if (IsKeyDown(KEY_UP)) {
             curPlayerPos->pos.y -= speed * deltaTime;
+            curFrameMovement.y -= speed * deltaTime;
         }
         if (IsKeyDown(KEY_DOWN)) {
             curPlayerPos->pos.y += speed * deltaTime;
+            curFrameMovement.y += speed * deltaTime;
         }
 
         const Position* playerPos = e_Player.get<Position>();
@@ -255,6 +275,7 @@ int main(void)
         //e_Camera2D.get_mut<Camera2D>()->offset = playerPos->pos;
 
         //std::cout << curPlayerPos->pos.x << ", " << curPlayerPos->pos.y << std::endl;
+        //std::cout << camera->target.x << ", " << camera->target.y << std::endl;
 
         BeginDrawing();
 
@@ -275,7 +296,20 @@ int main(void)
         //}
         //EndMode2D();
 
-        rlEnableShader(simpleShader.id);
+        rlEnableShader(simpleTileMapRenderingShader.id);
+
+        Vector2 cameraScreenPos = GetWorldToScreen2D(camera->target, *camera);
+        Vector2 cameraPos = camera->target;
+        Vector2 curFrameMovementInPixels = GetWorldToScreen2D(curFrameMovement, *camera);
+        //std::cout << cameraScreenPos.x << ", " << cameraScreenPos.y << std::endl;
+        //std::cout << cameraPos.x << ", " << cameraPos.y << std::endl;
+
+        //std::cout << cameraPos.x / worldSizeX << ", " << cameraPos.y / worldSizeY << std::endl;
+
+        SetShaderValue(simpleTileMapRenderingShader, cameraScreenPosInSimpleTileMapRenderingShader, &cameraScreenPos, SHADER_UNIFORM_VEC2);
+        SetShaderValue(simpleTileMapRenderingShader, cameraPosInSimpleTileMapRenderingShader, &cameraPos, SHADER_UNIFORM_VEC2);
+        SetShaderValue(simpleTileMapRenderingShader, movementInPixelsInSimpleTileMapRenderingShader, &curFrameMovementInPixels, SHADER_UNIFORM_VEC2);
+
 
         rlActiveTextureSlot(0);
         rlEnableTexture(e_tileMapGround.get<TileMap>()->tilePallet.spriteSheetTexture.id);
