@@ -10,8 +10,6 @@
 #include "AssetResourcesData.h"
 #include "TextureResource.h"
 
-#include "Velocity.h"
-
 #include "SpriteSheet.h"
 #include "SpriteAnimation.h"
 #include "AnimationGraph.h"
@@ -25,16 +23,12 @@
 const int screenWidth = 1280;
 const int screenHeight = 720;
 
-class Position {
-
-public:
-    Vector2 pos;
-};
-
 struct Player{public:};
 
 const int worldSizeX = 100;
 const int worldSizeY = 100;
+
+const int attackingTime = 1.0f;
 
 int main(void)
 {
@@ -42,20 +36,29 @@ int main(void)
 
     auto e_Player = world.entity("Player");
     e_Player.add<Player>();
-    e_Player.add<Position>();
-    e_Player.add<Velocity>();
+    e_Player.add<Character>();
+    e_Player.add<CharacterStates>();
     e_Player.add<SpriteSheet>();
     e_Player.add<TextureResource>();
     //e_Player.add<SpriteAnimation>();
     e_Player.add<AnimationGraph>();
 
     e_Player.set<TextureResource>({ knightCharacterSpriteSheetLocation, knightCharacterSpriteSheet_numSpriteCellsX, knightCharacterSpriteSheet_numSpriteCellsY, knightCharacterSpriteSheet_paddingX, knightCharacterSpriteSheet_paddingY });
-    e_Player.set<Position>({ Vector2{0.0f, 0.0f } });
-    e_Player.set<Velocity>({ Vector2{0.0f, 0.0f } });
+    //e_Player.set<Character>(Position{ Vector2{0.0f, 0.0f } }, Velocity{ Vector2{0.0f, 0.0f} }, Direction{ Vector2{0.0f, 0.0f} });
+    //e_Player.set<Velocity>({ Vector2{0.0f, 0.0f } });
 
     AnimationGraph* playerAnimationGraph = e_Player.get_mut<AnimationGraph>();
     playerAnimationGraph->transitionConditionFunctions.push_back(KnightIdleToRunAnimationChangeRule);
     playerAnimationGraph->transitionConditionFunctions.push_back(KnightRunToIdleAnimationChangeRule);
+
+    playerAnimationGraph->transitionConditionFunctions.push_back(KnightIdleToSideAttackAnimationChangeRule);
+    playerAnimationGraph->transitionConditionFunctions.push_back(KnightSideAttackToIdleAnimationChangeRule);
+
+    playerAnimationGraph->transitionConditionFunctions.push_back(KnightIdleToDownAttackAnimationChangeRule);
+    playerAnimationGraph->transitionConditionFunctions.push_back(KnightDownAttackToIdleAnimationChangeRule);
+
+    playerAnimationGraph->transitionConditionFunctions.push_back(KnightIdleToUpAttackAnimationChangeRule);
+    playerAnimationGraph->transitionConditionFunctions.push_back(KnightUpAttackToIdleAnimationChangeRule);
 
     auto e_Camera2D = world.entity("Camera2D");
     e_Camera2D.add<Camera2D>();
@@ -145,18 +148,26 @@ int main(void)
             UpdateAnimation(spriteAnimation);
         });
 
-    auto UpdatePlayerAnimationGraphSystem = world.system<AnimationGraph, Velocity>()
+    auto UpdatePlayerAnimationGraphSystem = world.system<AnimationGraph, CharacterStates>()
         .kind(flecs::OnUpdate)
-        .each([](flecs::iter& it, size_t, AnimationGraph& animationGraph, Velocity& velocity) {
+        .each([](flecs::iter& it, size_t, AnimationGraph& animationGraph, CharacterStates& characterStates) {
             //std::cout << "Update Sprite Sheet Animation System." << std::endl;
             //UpdateAnimation(animationGraph.animations[animationGraph.currentAnimationPlaying]);
 
-            std::any parms = velocity;
+            std::any parms = characterStates;
             int animationIndex = ShouldAnimationTransition(animationGraph, parms);
 
-            if (animationIndex != animationGraph.currentAnimationPlaying) {
+            //std::cout << animationIndex << ", " << animationGraph.currentAnimationPlaying << std::endl;
+
+            if (animationIndex != -1 && animationIndex != animationGraph.currentAnimationPlaying) {
                 animationGraph.animations[animationGraph.currentAnimationPlaying].timeSinceLastFrameUpdate = 0;
                 animationGraph.currentAnimationPlaying = animationIndex;
+                //std::cout << "Change Animation." << animationIndex << std::endl;
+            }
+            else if(animationIndex == -1) {
+                animationGraph.animations[animationGraph.currentAnimationPlaying].timeSinceLastFrameUpdate = 0;
+                animationGraph.currentAnimationPlaying = 0;
+                //std::cout << "Reset Animation." << animationIndex << std::endl;
             }
 
             UpdateAnimationGraphCurrentAnimation(animationGraph);
@@ -170,12 +181,12 @@ int main(void)
             DrawTextureRec(ss.spriteSheetTexture, spriteAnimation.curFrameView, position.pos - Vector2{ ss.cell.width * 0.5f, ss.cell.height * 0.5f }, WHITE);
         });
 
-    auto AnimationGraphDrawingSystem = world.system<SpriteSheet, AnimationGraph, Position>()
+    auto AnimationGraphDrawingSystem = world.system<SpriteSheet, AnimationGraph, Character>()
         .kind(flecs::OnUpdate)
-        .each([](flecs::iter& it, size_t, SpriteSheet& ss, AnimationGraph& animationGraph, Position& position) {
+        .each([](flecs::iter& it, size_t, SpriteSheet& ss, AnimationGraph& animationGraph, Character& character) {
             //std::cout << "Update Sprite Sheet Animation Drawing System." << std::endl;
             //spriteAnimation.curAnimationStateY = 5;
-            DrawTextureRec(ss.spriteSheetTexture, animationGraph.animations[animationGraph.currentAnimationPlaying].curFrameView, position.pos - Vector2{ss.cell.width * 0.5f, ss.cell.height * 0.5f}, WHITE);
+            DrawTextureRec(ss.spriteSheetTexture, animationGraph.animations[animationGraph.currentAnimationPlaying].curFrameView, character.position.pos - Vector2{ss.cell.width * 0.5f, ss.cell.height * 0.5f}, WHITE);
         });
 
     auto TileMapDrawingSystem = world.system<TileMap>()
@@ -262,10 +273,15 @@ int main(void)
 
     rlEnableVertexArray(0);
 
+    bool attackClosed = true;
+    float attackCloseTime = 0.0f;
 
     while (!WindowShouldClose())
     {
-        e_Player.set<Velocity>({ Vector2{0.0f, 0.0f } });
+        Character* playerCharacter_mut = e_Player.get_mut<Character>();
+        CharacterStates* playerCharacterStates_mut = e_Player.get_mut<CharacterStates>();
+
+        playerCharacter_mut->velocity.vel = Vector2Zeros;
 
         Vector2 curDirection = Vector2Zeros;
         //UpdateSpriteSheetAnimationSystem.run();
@@ -277,63 +293,65 @@ int main(void)
 
         float speed = 100.0f;
         float deltaTime = GetFrameTime();
-        Position* curPlayerPos = e_Player.get_mut<Position>();
+
+
+        if (!attackClosed) {
+            if (attackCloseTime <= GetTime()) {
+                //std::cout << "Stopped Attack!" << std::endl;
+
+                playerCharacterStates_mut->attackingSide = false;
+                attackClosed = true;
+            }
+        }
+
+        //std::cout << IsCharacterAttacking(*playerCharacterStates_mut) << std::endl;
+        //std::cout << playerCharacterStates_mut->attackingSide << std::endl;
+        if (IsKeyPressed(KEY_SPACE) && !IsCharacterAttacking(*playerCharacterStates_mut)) {
+            //std::cout << "Attacking!" << std::endl;
+            playerCharacterStates_mut->attackingSide = true;
+            attackCloseTime = GetTime() + attackingTime;
+            attackClosed = false;
+        }
+
         if (IsKeyDown(KEY_RIGHT)) {
-            curPlayerPos->pos.x += speed * deltaTime;
+            playerCharacter_mut->position.pos.x += speed * deltaTime;
             //camera->target.x += speed * deltaTime;
             curFrameMovement.x -= speed * deltaTime;
             curDirection.x = 1.0;
         }
         if (IsKeyDown(KEY_LEFT)) {
-            curPlayerPos->pos.x -= speed * deltaTime;
+            playerCharacter_mut->position.pos.x -= speed * deltaTime;
             //camera->target.x -= speed * deltaTime;
             curFrameMovement.x += speed * deltaTime;
             curDirection.x = -1.0;
         }
         if (IsKeyDown(KEY_UP)) {
-            curPlayerPos->pos.y -= speed * deltaTime;
+            playerCharacter_mut->position.pos.y -= speed * deltaTime;
             //camera->target.y -= speed * deltaTime;
             curFrameMovement.y -= speed * deltaTime;
             curDirection.y = 1.0;
         }
         if (IsKeyDown(KEY_DOWN)) {
-            curPlayerPos->pos.y += speed * deltaTime;
+            playerCharacter_mut->position.pos.y += speed * deltaTime;
             //camera->target.y += speed * deltaTime;
             curFrameMovement.y += speed * deltaTime;
             curDirection.y = -1.0;
         }
 
-        Velocity* playerVelocity = e_Player.get_mut<Velocity>();
-        playerVelocity->vel = curDirection * speed;
+        playerCharacter_mut->velocity.vel = curDirection * speed;
+        playerCharacterStates_mut->running = Vector2Length(playerCharacter_mut->velocity.vel) != 0.0f;
+        playerCharacterStates_mut->idle = Vector2Length(playerCharacter_mut->velocity.vel) == 0.0f;
 
         UpdatePlayerAnimationGraphSystem.run();
 
-        const Position* playerPos = e_Player.get<Position>();
         Camera2D* camera = e_Camera2D.get_mut<Camera2D>();
-        camera->target = playerPos->pos;
+        camera->target = playerCharacter_mut->position.pos;
         camera->zoom += ((float)GetMouseWheelMove() * 0.05f);
-        //e_Camera2D.get_mut<Camera2D>()->offset = playerPos->pos;
-
-        //std::cout << curPlayerPos->pos.x << ", " << curPlayerPos->pos.y << std::endl;
-        //std::cout << camera->target.x << ", " << camera->target.y << std::endl;
 
         BeginDrawing();
 
         ClearBackground(RAYWHITE);
 
-        //TileMapDrawingSystem.run();
-
-        //const TileMap* tm = e_tileMapGround.get<TileMap>();
-
-        //BeginMode2D(camera);
-        //for (int x = 0; x < 10; x++)
-        //{
-        //    for (int y = 0; y < 10; y++)
-        //    {
-        //        DrawTextureRec(tm->tilePallet.spriteSheetTexture, tm->tiles[x][y].tileInSpriteSheet, Vector2{ (float)x, (float)y }, WHITE);
-        //    }
-        //}
-        //EndMode2D();
 
         if(true)
         {
@@ -362,7 +380,11 @@ int main(void)
         BeginMode2D(*camera);
 
         //SpriteSheetAnimationDrawingSystem.run();
+        //std::cout << "Before draw: " << playerCharacterStates_mut->attackingSide << std::endl;
+
         AnimationGraphDrawingSystem.run();
+        //std::cout << "After draw: " << playerCharacterStates_mut->attackingSide << std::endl;
+
 
         float resolution = screenWidth / screenHeight;
         float width = screenWidth / 12;
@@ -371,7 +393,7 @@ int main(void)
         //DrawRectangle(attackFacingDebugPos.x, attackFacingDebugPos.y, (int)width, (int)height, RED);
 
         //DrawCircle(curPlayerPos->pos.x, curPlayerPos->pos.y, 10.0f, RED);
-        DrawRectangleLines(curPlayerPos->pos.x - (width * 0.5f), curPlayerPos->pos.y - (height * 0.5f), width, height, RED);
+        DrawRectangleLines(playerCharacter_mut->position.pos.x - (width * 0.5f), playerCharacter_mut->position.pos.y - (height * 0.5f), width, height, RED);
 
         EndMode2D();
 

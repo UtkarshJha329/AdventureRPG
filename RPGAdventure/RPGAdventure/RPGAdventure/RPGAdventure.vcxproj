@@ -137,8 +137,10 @@
   <ItemGroup>
     <ClInclude Include="AnimationGraph.h" />
     <ClInclude Include="AssetResourcesData.h" />
+    <ClInclude Include="Character.h" />
     <ClInclude Include="flecs\flecs.h" />
     <ClInclude Include="KnightAnimationGraphTransitionsFunctions.h" />
+    <ClInclude Include="Position.h" />
     <ClInclude Include="SpriteAnimation.h" />
     <ClInclude Include="SpriteSheet.h" />
     <ClInclude Include="TextureResource.h" />
