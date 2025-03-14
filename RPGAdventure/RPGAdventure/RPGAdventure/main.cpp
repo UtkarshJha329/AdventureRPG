@@ -186,7 +186,9 @@ int main(void)
         .each([](flecs::iter& it, size_t, SpriteSheet& ss, AnimationGraph& animationGraph, Character& character) {
             //std::cout << "Update Sprite Sheet Animation Drawing System." << std::endl;
             //spriteAnimation.curAnimationStateY = 5;
-            DrawTextureRec(ss.spriteSheetTexture, animationGraph.animations[animationGraph.currentAnimationPlaying].curFrameView, character.position.pos - Vector2{ss.cell.width * 0.5f, ss.cell.height * 0.5f}, WHITE);
+            Rectangle view = animationGraph.animations[animationGraph.currentAnimationPlaying].curFrameView;
+            view.width *= character.facingDirection.x;
+            DrawTextureRec(ss.spriteSheetTexture, view, character.position.pos - Vector2{ss.cell.width * 0.5f, ss.cell.height * 0.5f}, WHITE);
         });
 
     auto TileMapDrawingSystem = world.system<TileMap>()
@@ -276,6 +278,8 @@ int main(void)
     bool attackClosed = true;
     float attackCloseTime = 0.0f;
 
+    Vector2 previousMovementDirection = Vector2Zeros;
+
     while (!WindowShouldClose())
     {
         Character* playerCharacter_mut = e_Player.get_mut<Character>();
@@ -305,27 +309,15 @@ int main(void)
 
 
         if (IsKeyDown(KEY_RIGHT)) {
-            //playerCharacter_mut->position.pos.x += speed * deltaTime;
-            //camera->target.x += speed * deltaTime;
-            //curFrameMovement.x -= speed * deltaTime;
             curDirection.x = 1.0;
         }
         if (IsKeyDown(KEY_LEFT)) {
-            //playerCharacter_mut->position.pos.x -= speed * deltaTime;
-            //camera->target.x -= speed * deltaTime;
-            //curFrameMovement.x += speed * deltaTime;
             curDirection.x = -1.0;
         }
         if (IsKeyDown(KEY_UP)) {
-            //playerCharacter_mut->position.pos.y -= speed * deltaTime;
-            //camera->target.y -= speed * deltaTime;
-            //curFrameMovement.y -= speed * deltaTime;
             curDirection.y = 1.0;
         }
         if (IsKeyDown(KEY_DOWN)) {
-            //playerCharacter_mut->position.pos.y += speed * deltaTime;
-            //camera->target.y += speed * deltaTime;
-            //curFrameMovement.y += speed * deltaTime;
             curDirection.y = -1.0;
         }
 
@@ -346,6 +338,12 @@ int main(void)
 
             attackCloseTime = GetTime() + attackingTime;
             attackClosed = false;
+        }
+
+        //VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV ORDER OF THIS TEST IS IMPORTANT! IT MUST HAPPEN BEFORE THE CURRENT MOVEMENT DIRECTION IS SET TO 0 BECAUSE PLAYER IS ATTACKING!
+        if (!Vector2Equals(curDirection, previousMovementDirection)) {
+            playerCharacter_mut->facingDirection.x = curDirection.x >= 0.0f ? 1.0f : -1.0f;
+            playerCharacter_mut->facingDirection.y = 1.0f;
         }
 
         if (IsCharacterAttacking(*playerCharacterStates_mut)) {
@@ -418,6 +416,8 @@ int main(void)
         DrawFPS(40, 40);
 
         EndDrawing();
+
+        previousMovementDirection = curDirection;
     }
 
     CloseWindow();        // Close window and OpenGL context
