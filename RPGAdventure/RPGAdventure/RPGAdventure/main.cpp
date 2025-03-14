@@ -10,9 +10,14 @@
 #include "AssetResourcesData.h"
 #include "TextureResource.h"
 
+#include "Velocity.h"
+
 #include "SpriteSheet.h"
 #include "SpriteAnimation.h"
+#include "AnimationGraph.h"
 #include "TileMap.h"
+
+#include "KnightAnimationGraphTransitionsFunctions.h"
 
 #include <string>
 #include <vector>
@@ -38,12 +43,19 @@ int main(void)
     auto e_Player = world.entity("Player");
     e_Player.add<Player>();
     e_Player.add<Position>();
+    e_Player.add<Velocity>();
     e_Player.add<SpriteSheet>();
     e_Player.add<TextureResource>();
-    e_Player.add<SpriteAnimation>();
+    //e_Player.add<SpriteAnimation>();
+    e_Player.add<AnimationGraph>();
 
-    e_Player.set<TextureResource>({ knightCharacterSpriteSheet, knightCharacterSpriteSheet_numSpriteCellsX, knightCharacterSpriteSheet_numSpriteCellsY, knightCharacterSpriteSheet_paddingX, knightCharacterSpriteSheet_paddingY });
+    e_Player.set<TextureResource>({ knightCharacterSpriteSheetLocation, knightCharacterSpriteSheet_numSpriteCellsX, knightCharacterSpriteSheet_numSpriteCellsY, knightCharacterSpriteSheet_paddingX, knightCharacterSpriteSheet_paddingY });
     e_Player.set<Position>({ Vector2{0.0f, 0.0f } });
+    e_Player.set<Velocity>({ Vector2{0.0f, 0.0f } });
+
+    AnimationGraph* playerAnimationGraph = e_Player.get_mut<AnimationGraph>();
+    playerAnimationGraph->transitionConditionFunctions.push_back(KnightIdleToRunAnimationChangeRule);
+    playerAnimationGraph->transitionConditionFunctions.push_back(KnightRunToIdleAnimationChangeRule);
 
     auto e_Camera2D = world.entity("Camera2D");
     e_Camera2D.add<Camera2D>();
@@ -77,6 +89,22 @@ int main(void)
         .each([](flecs::iter& it, size_t, SpriteSheet& ss, SpriteAnimation& spriteAnimation) {
             //std::cout << "Init Sprite Sheet Animation System." << std::endl;
             InitSpriteAnimation(spriteAnimation, 0, ss.numSpriteCellsX, ss.numSpriteCellsX, true, ss);
+        });
+
+    auto InitAnimationGraphSystem = world.system<SpriteSheet, AnimationGraph>()
+        .kind(flecs::OnStart)
+        .each([](flecs::iter& it, size_t, SpriteSheet& ss, AnimationGraph& animationGraph) {
+            //std::cout << "Init Sprite Sheet Animation System." << std::endl;
+    
+            animationGraph.currentAnimationPlaying = 0;
+            for (int i = 0; i < ss.numSpriteCellsY; i++)
+            {
+                SpriteAnimation curSpriteAnimation = { 0 };
+                curSpriteAnimation.curAnimationStateY = i;
+                InitSpriteAnimation(curSpriteAnimation, 0, ss.numSpriteCellsX, ss.numSpriteCellsX, true, ss);
+
+                animationGraph.animations.push_back(curSpriteAnimation);
+            }
         });
 
     auto InitTileMapSystem = world.system<TextureResource, TileMap>()
@@ -117,11 +145,37 @@ int main(void)
             UpdateAnimation(spriteAnimation);
         });
 
+    auto UpdatePlayerAnimationGraphSystem = world.system<AnimationGraph, Velocity>()
+        .kind(flecs::OnUpdate)
+        .each([](flecs::iter& it, size_t, AnimationGraph& animationGraph, Velocity& velocity) {
+            //std::cout << "Update Sprite Sheet Animation System." << std::endl;
+            //UpdateAnimation(animationGraph.animations[animationGraph.currentAnimationPlaying]);
+
+            std::any parms = velocity;
+            int animationIndex = ShouldAnimationTransition(animationGraph, parms);
+
+            if (animationIndex != animationGraph.currentAnimationPlaying) {
+                animationGraph.animations[animationGraph.currentAnimationPlaying].timeSinceLastFrameUpdate = 0;
+                animationGraph.currentAnimationPlaying = animationIndex;
+            }
+
+            UpdateAnimationGraphCurrentAnimation(animationGraph);
+        });
+
     auto SpriteSheetAnimationDrawingSystem = world.system<SpriteSheet, SpriteAnimation, Position>()
         .kind(flecs::OnUpdate)
         .each([](flecs::iter& it, size_t, SpriteSheet& ss, SpriteAnimation& spriteAnimation, Position& position) {
             //std::cout << "Update Sprite Sheet Animation Drawing System." << std::endl;
+            //spriteAnimation.curAnimationStateY = 5;
             DrawTextureRec(ss.spriteSheetTexture, spriteAnimation.curFrameView, position.pos - Vector2{ ss.cell.width * 0.5f, ss.cell.height * 0.5f }, WHITE);
+        });
+
+    auto AnimationGraphDrawingSystem = world.system<SpriteSheet, AnimationGraph, Position>()
+        .kind(flecs::OnUpdate)
+        .each([](flecs::iter& it, size_t, SpriteSheet& ss, AnimationGraph& animationGraph, Position& position) {
+            //std::cout << "Update Sprite Sheet Animation Drawing System." << std::endl;
+            //spriteAnimation.curAnimationStateY = 5;
+            DrawTextureRec(ss.spriteSheetTexture, animationGraph.animations[animationGraph.currentAnimationPlaying].curFrameView, position.pos - Vector2{ss.cell.width * 0.5f, ss.cell.height * 0.5f}, WHITE);
         });
 
     auto TileMapDrawingSystem = world.system<TileMap>()
@@ -151,20 +205,8 @@ int main(void)
             EndMode2D();
         });
 
-
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
 
-    //auto e = world.entity("Test Sprite");
-    //e.add<TextureResource>();
-    //e.add<SpriteSheet>();
-    //e.add<SpriteAnimation>();
-    //e.add<Vector2>();
-
-    //e.set<TextureResource>({ terrainTopFlatTileMap, terrainTopFlatTileMap_numSpriteCellsX, terrainTopFlatTileMap_numSpriteCellsY });
-    //e.set<Vector2>({ Vector2{350.0f, 280.0f} });
-
-    //InitSpriteSheetSystem.run();
-    //InitSpriteSheetAnimationSystem.run();
 
     world.progress(GetFrameTime());
 
@@ -223,8 +265,10 @@ int main(void)
 
     while (!WindowShouldClose())
     {
+        e_Player.set<Velocity>({ Vector2{0.0f, 0.0f } });
+
         Vector2 curDirection = Vector2Zeros;
-        UpdateSpriteSheetAnimationSystem.run();
+        //UpdateSpriteSheetAnimationSystem.run();
 
         //PlayerMovementSystem.run();
         //CameraFollowSystem.run();
@@ -258,6 +302,11 @@ int main(void)
             curFrameMovement.y += speed * deltaTime;
             curDirection.y = -1.0;
         }
+
+        Velocity* playerVelocity = e_Player.get_mut<Velocity>();
+        playerVelocity->vel = curDirection * speed;
+
+        UpdatePlayerAnimationGraphSystem.run();
 
         const Position* playerPos = e_Player.get<Position>();
         Camera2D* camera = e_Camera2D.get_mut<Camera2D>();
@@ -294,13 +343,6 @@ int main(void)
             Vector2 cameraPos = camera->target;
             Vector2 curFrameMovementInPixels = GetWorldToScreen2D(curFrameMovement, *camera);
 
-            //Vector2 diffPixels = cameraScreenPos - curFrameMovementInPixels;
-
-            //curFrameMovementInPixels.x = curFrameMovementInPixels.x * movementX;
-            //std::cout << curFrameMovementInPixels.x << ", " << curFrameMovementInPixels.y << std::endl;
-            //std::cout << curFrameMovement.x << ", " << curFrameMovement.y << std::endl;
-            //std::cout << diffPixels.x << ", " << diffPixels.y << std::endl;
-
             SetShaderValue(simpleTileMapRenderingShader, cameraScreenPosInSimpleTileMapRenderingShader, &cameraScreenPos, SHADER_UNIFORM_VEC2);
             SetShaderValue(simpleTileMapRenderingShader, cameraPosInSimpleTileMapRenderingShader, &cameraPos, SHADER_UNIFORM_VEC2);
             SetShaderValue(simpleTileMapRenderingShader, movementInPixelsInSimpleTileMapRenderingShader, &curFrameMovementInPixels, SHADER_UNIFORM_VEC2);
@@ -308,10 +350,8 @@ int main(void)
 
             rlActiveTextureSlot(0);
             rlEnableTexture(e_tileMapGround.get<TileMap>()->tilePallet.spriteSheetTexture.id);
-            //rlEnableTexture(textureLoad.id);
 
             rlEnableVertexArray(quadVAO);
-            //rlDrawVertexArray(0, 4);
             rlDrawVertexArrayElements(0, 6, 0);
 
             rlEnableVertexArray(0);
@@ -321,7 +361,8 @@ int main(void)
 
         BeginMode2D(*camera);
 
-        SpriteSheetAnimationDrawingSystem.run();
+        //SpriteSheetAnimationDrawingSystem.run();
+        AnimationGraphDrawingSystem.run();
 
         float resolution = screenWidth / screenHeight;
         float width = screenWidth / 12;
@@ -329,7 +370,7 @@ int main(void)
         //Vector2 attackFacingDebugPos = curPlayerPos->pos + (curDirection * Vector2{ width, height });
         //DrawRectangle(attackFacingDebugPos.x, attackFacingDebugPos.y, (int)width, (int)height, RED);
 
-        DrawCircle(curPlayerPos->pos.x, curPlayerPos->pos.y, 10.0f, RED);
+        //DrawCircle(curPlayerPos->pos.x, curPlayerPos->pos.y, 10.0f, RED);
         DrawRectangleLines(curPlayerPos->pos.x - (width * 0.5f), curPlayerPos->pos.y - (height * 0.5f), width, height, RED);
 
         EndMode2D();

@@ -119,6 +119,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)Include;</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -134,12 +135,15 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AnimationGraph.h" />
     <ClInclude Include="AssetResourcesData.h" />
     <ClInclude Include="flecs\flecs.h" />
+    <ClInclude Include="KnightAnimationGraphTransitionsFunctions.h" />
     <ClInclude Include="SpriteAnimation.h" />
     <ClInclude Include="SpriteSheet.h" />
     <ClInclude Include="TextureResource.h" />
     <ClInclude Include="TileMap.h" />
+    <ClInclude Include="Velocity.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\SimpleTileMapRenderingShader.frag" />
