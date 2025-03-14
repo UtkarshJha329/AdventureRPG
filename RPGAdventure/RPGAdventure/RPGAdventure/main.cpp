@@ -284,10 +284,6 @@ int main(void)
         playerCharacter_mut->velocity.vel = Vector2Zeros;
 
         Vector2 curDirection = Vector2Zeros;
-        //UpdateSpriteSheetAnimationSystem.run();
-
-        //PlayerMovementSystem.run();
-        //CameraFollowSystem.run();
 
         Vector2 curFrameMovement = Vector2Zeros;
 
@@ -300,43 +296,65 @@ int main(void)
                 //std::cout << "Stopped Attack!" << std::endl;
 
                 playerCharacterStates_mut->attackingSide = false;
+                playerCharacterStates_mut->attackingDown = false;
+                playerCharacterStates_mut->attackingUp = false;
                 attackClosed = true;
             }
         }
 
-        //std::cout << IsCharacterAttacking(*playerCharacterStates_mut) << std::endl;
-        //std::cout << playerCharacterStates_mut->attackingSide << std::endl;
+
+
+        if (IsKeyDown(KEY_RIGHT)) {
+            //playerCharacter_mut->position.pos.x += speed * deltaTime;
+            //camera->target.x += speed * deltaTime;
+            //curFrameMovement.x -= speed * deltaTime;
+            curDirection.x = 1.0;
+        }
+        if (IsKeyDown(KEY_LEFT)) {
+            //playerCharacter_mut->position.pos.x -= speed * deltaTime;
+            //camera->target.x -= speed * deltaTime;
+            //curFrameMovement.x += speed * deltaTime;
+            curDirection.x = -1.0;
+        }
+        if (IsKeyDown(KEY_UP)) {
+            //playerCharacter_mut->position.pos.y -= speed * deltaTime;
+            //camera->target.y -= speed * deltaTime;
+            //curFrameMovement.y -= speed * deltaTime;
+            curDirection.y = 1.0;
+        }
+        if (IsKeyDown(KEY_DOWN)) {
+            //playerCharacter_mut->position.pos.y += speed * deltaTime;
+            //camera->target.y += speed * deltaTime;
+            //curFrameMovement.y += speed * deltaTime;
+            curDirection.y = -1.0;
+        }
+
         if (IsKeyPressed(KEY_SPACE) && !IsCharacterAttacking(*playerCharacterStates_mut)) {
             //std::cout << "Attacking!" << std::endl;
-            playerCharacterStates_mut->attackingSide = true;
+
+            if (curDirection.x != 0.0f/* && curDirection.y == 0.0f*/) {
+                playerCharacterStates_mut->attackingSide = true;
+            }
+            else if (curDirection.x == 0.0f) {
+                if (curDirection.y == -1.0f) {
+                    playerCharacterStates_mut->attackingDown = true;
+                }
+                else if (curDirection.y == 1.0f) {
+                    playerCharacterStates_mut->attackingUp = true;
+                }
+            }
+
             attackCloseTime = GetTime() + attackingTime;
             attackClosed = false;
         }
 
-        if (IsKeyDown(KEY_RIGHT)) {
-            playerCharacter_mut->position.pos.x += speed * deltaTime;
-            //camera->target.x += speed * deltaTime;
-            curFrameMovement.x -= speed * deltaTime;
-            curDirection.x = 1.0;
+        if (IsCharacterAttacking(*playerCharacterStates_mut)) {
+            //std::cout << "Stop moving while attacking." << std::endl;
+            curDirection = Vector2Zeros;
         }
-        if (IsKeyDown(KEY_LEFT)) {
-            playerCharacter_mut->position.pos.x -= speed * deltaTime;
-            //camera->target.x -= speed * deltaTime;
-            curFrameMovement.x += speed * deltaTime;
-            curDirection.x = -1.0;
-        }
-        if (IsKeyDown(KEY_UP)) {
-            playerCharacter_mut->position.pos.y -= speed * deltaTime;
-            //camera->target.y -= speed * deltaTime;
-            curFrameMovement.y -= speed * deltaTime;
-            curDirection.y = 1.0;
-        }
-        if (IsKeyDown(KEY_DOWN)) {
-            playerCharacter_mut->position.pos.y += speed * deltaTime;
-            //camera->target.y += speed * deltaTime;
-            curFrameMovement.y += speed * deltaTime;
-            curDirection.y = -1.0;
-        }
+
+        curFrameMovement = curDirection * Vector2{ 1.0f, -1.0f } *speed * deltaTime;
+        playerCharacter_mut->position.pos += curFrameMovement;
 
         playerCharacter_mut->velocity.vel = curDirection * speed;
         playerCharacterStates_mut->running = Vector2Length(playerCharacter_mut->velocity.vel) != 0.0f;
