@@ -342,7 +342,9 @@ int main(void)
 
         if (!Vector2Equals(curFrameMovementDirection, previousMovementDirection)) {
             //std::cout << "Reset facing direction." << std::endl;
-            playerCharacter_mut->facingDirection.x = curFrameMovementDirection.x > 0.0f ? 1.0f : -1.0f;
+            if (curFrameMovementDirection.x != 0) {
+                playerCharacter_mut->facingDirection.x = curFrameMovementDirection.x;
+            }
             playerCharacter_mut->facingDirection.y = 1.0f;
         }
 
