@@ -42,7 +42,7 @@ int main(void)
     e_Player.add<TextureResource>();
     e_Player.add<SpriteAnimation>();
 
-    e_Player.set<TextureResource>({ knightCharacterSpriteSheet, knightCharacterSpriteSheet_numSpriteCellsX, knightCharacterSpriteSheet_numSpriteCellsY });
+    e_Player.set<TextureResource>({ knightCharacterSpriteSheet, knightCharacterSpriteSheet_numSpriteCellsX, knightCharacterSpriteSheet_numSpriteCellsY, knightCharacterSpriteSheet_paddingX, knightCharacterSpriteSheet_paddingY });
     e_Player.set<Position>({ Vector2{0.0f, 0.0f } });
 
     auto e_Camera2D = world.entity("Camera2D");
@@ -60,7 +60,7 @@ int main(void)
     e_tileMapGround.add<TileMap>();
     e_tileMapGround.add<Vector3>();
 
-    e_tileMapGround.set<TextureResource>({ terrainTopFlatTileMap, terrainTopFlatTileMap_numSpriteCellsX, terrainTopFlatTileMap_numSpriteCellsY });
+    e_tileMapGround.set<TextureResource>({ terrainTopFlatTileMap, terrainTopFlatTileMap_numSpriteCellsX, terrainTopFlatTileMap_numSpriteCellsY, terrainTopFlatTileMap_paddingX, terrainTopFlatTileMap_paddingY });
     e_tileMapGround.set<Vector3>({ Vector3 {0.0f, 0.0f, 0.0f} });
 
     std::vector<Vector2> tileTextureIndexData(worldSizeX * worldSizeY, { 0.0f, 0.0f });
@@ -68,21 +68,23 @@ int main(void)
     auto InitSpriteSheetSystem = world.system<SpriteSheet, TextureResource>()
         .kind(flecs::OnStart)
         .each([](flecs::iter& it, size_t, SpriteSheet& ss, TextureResource& tr) {
-            std::cout << "Init Sprite Sheet System." << std::endl;
-            InitSpriteSheet(ss, tr.texSrc, tr.numSpriteCellsX, tr.numSpriteCellsY);
+            //std::cout << "Init Sprite Sheet System." << std::endl;
+            InitSpriteSheet(ss, tr.texSrc, tr.numSpriteCellsX, tr.numSpriteCellsY, tr.paddingX, tr.paddingY);
         });
 
     auto InitSpriteSheetAnimationSystem = world.system<SpriteSheet, SpriteAnimation>()
         .kind(flecs::OnStart)
         .each([](flecs::iter& it, size_t, SpriteSheet& ss, SpriteAnimation& spriteAnimation) {
-            std::cout << "Init Sprite Sheet Animation System." << std::endl;
+            //std::cout << "Init Sprite Sheet Animation System." << std::endl;
             InitSpriteAnimation(spriteAnimation, 0, ss.numSpriteCellsX, ss.numSpriteCellsX, true, ss);
         });
 
     auto InitTileMapSystem = world.system<TextureResource, TileMap>()
         .kind(flecs::OnStart)
         .each([&tileTextureIndexData](flecs::iter& it, size_t, TextureResource& tr, TileMap& tm) {
-            InitSpriteSheet(tm.tilePallet, tr.texSrc, tr.numSpriteCellsX, tr.numSpriteCellsY);
+
+            //std::cout << "Init Tile Map Sprites." << std::endl;
+            InitSpriteSheet(tm.tilePallet, tr.texSrc, tr.numSpriteCellsX, tr.numSpriteCellsY, tr.paddingX, tr.paddingY);
 
             tm.sizeX = worldSizeX;
             tm.sizeY = worldSizeY;
@@ -108,31 +110,6 @@ int main(void)
 
         });
 
-    //auto PlayerMovementSystem = world.system<Player, Position>()
-    //    .kind(flecs::PreUpdate)
-    //    .each([](flecs::iter& it, size_t, Position& position) {
-    //        if (IsKeyPressed(KEY_RIGHT)) {
-    //            position.pos.x += 1 * it.delta_time();
-    //        }
-    //        if (IsKeyPressed(KEY_LEFT)) {
-    //            position.pos.x -= 1 * it.delta_time();
-    //        }
-    //        if (IsKeyPressed(KEY_UP)) {
-    //            position.pos.y += 1 * it.delta_time();
-    //        }
-    //        if (IsKeyPressed(KEY_DOWN)) {
-    //            position.pos.y -= 1 * it.delta_time();
-    //        }
-    //    });
-
-    //auto CameraFollowSystem = world.system<Camera2D>()
-    //    .kind(flecs::OnUpdate)
-    //    .each([e_Player](flecs::iter& it, size_t, Camera2D& camera)
-    //    {
-    //            const Position* playerPos = e_Player.get<Position>();
-    //            camera.target = playerPos->pos;
-    //    });
-
     auto UpdateSpriteSheetAnimationSystem = world.system<SpriteAnimation>()
         .kind(flecs::OnUpdate)
         .each([](flecs::iter& it, size_t, SpriteAnimation& spriteAnimation) {
@@ -144,7 +121,7 @@ int main(void)
         .kind(flecs::OnUpdate)
         .each([](flecs::iter& it, size_t, SpriteSheet& ss, SpriteAnimation& spriteAnimation, Position& position) {
             //std::cout << "Update Sprite Sheet Animation Drawing System." << std::endl;
-            DrawTextureRec(ss.spriteSheetTexture, spriteAnimation.curFrameView, position.pos, WHITE);
+            DrawTextureRec(ss.spriteSheetTexture, spriteAnimation.curFrameView, position.pos - Vector2{ ss.cell.width * 0.5f, ss.cell.height * 0.5f }, WHITE);
         });
 
     auto TileMapDrawingSystem = world.system<TileMap>()
@@ -186,8 +163,8 @@ int main(void)
     //e.set<TextureResource>({ terrainTopFlatTileMap, terrainTopFlatTileMap_numSpriteCellsX, terrainTopFlatTileMap_numSpriteCellsY });
     //e.set<Vector2>({ Vector2{350.0f, 280.0f} });
 
-    InitSpriteSheetSystem.run();
-    InitSpriteSheetAnimationSystem.run();
+    //InitSpriteSheetSystem.run();
+    //InitSpriteSheetAnimationSystem.run();
 
     world.progress(GetFrameTime());
 
@@ -246,6 +223,7 @@ int main(void)
 
     while (!WindowShouldClose())
     {
+        Vector2 curDirection = Vector2Zeros;
         UpdateSpriteSheetAnimationSystem.run();
 
         //PlayerMovementSystem.run();
@@ -260,21 +238,25 @@ int main(void)
             curPlayerPos->pos.x += speed * deltaTime;
             //camera->target.x += speed * deltaTime;
             curFrameMovement.x -= speed * deltaTime;
+            curDirection.x = 1.0;
         }
         if (IsKeyDown(KEY_LEFT)) {
             curPlayerPos->pos.x -= speed * deltaTime;
             //camera->target.x -= speed * deltaTime;
             curFrameMovement.x += speed * deltaTime;
+            curDirection.x = -1.0;
         }
         if (IsKeyDown(KEY_UP)) {
             curPlayerPos->pos.y -= speed * deltaTime;
             //camera->target.y -= speed * deltaTime;
             curFrameMovement.y -= speed * deltaTime;
+            curDirection.y = 1.0;
         }
         if (IsKeyDown(KEY_DOWN)) {
             curPlayerPos->pos.y += speed * deltaTime;
             //camera->target.y += speed * deltaTime;
             curFrameMovement.y += speed * deltaTime;
+            curDirection.y = -1.0;
         }
 
         const Position* playerPos = e_Player.get<Position>();
@@ -340,6 +322,15 @@ int main(void)
         BeginMode2D(*camera);
 
         SpriteSheetAnimationDrawingSystem.run();
+
+        float resolution = screenWidth / screenHeight;
+        float width = screenWidth / 12;
+        float height = width / resolution;
+        //Vector2 attackFacingDebugPos = curPlayerPos->pos + (curDirection * Vector2{ width, height });
+        //DrawRectangle(attackFacingDebugPos.x, attackFacingDebugPos.y, (int)width, (int)height, RED);
+
+        DrawCircle(curPlayerPos->pos.x, curPlayerPos->pos.y, 10.0f, RED);
+        DrawRectangleLines(curPlayerPos->pos.x - (width * 0.5f), curPlayerPos->pos.y - (height * 0.5f), width, height, RED);
 
         EndMode2D();
 
