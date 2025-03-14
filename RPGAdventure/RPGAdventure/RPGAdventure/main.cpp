@@ -287,7 +287,7 @@ int main(void)
 
         playerCharacter_mut->velocity.vel = Vector2Zeros;
 
-        Vector2 curDirection = Vector2Zeros;
+        Vector2 curFrameMovementDirection = Vector2Zeros;
 
         Vector2 curFrameMovement = Vector2Zeros;
 
@@ -309,29 +309,29 @@ int main(void)
 
 
         if (IsKeyDown(KEY_RIGHT)) {
-            curDirection.x = 1.0;
+            curFrameMovementDirection.x = 1.0;
         }
         if (IsKeyDown(KEY_LEFT)) {
-            curDirection.x = -1.0;
+            curFrameMovementDirection.x = -1.0;
         }
         if (IsKeyDown(KEY_UP)) {
-            curDirection.y = 1.0;
+            curFrameMovementDirection.y = 1.0;
         }
         if (IsKeyDown(KEY_DOWN)) {
-            curDirection.y = -1.0;
+            curFrameMovementDirection.y = -1.0;
         }
 
         if (IsKeyPressed(KEY_SPACE) && !IsCharacterAttacking(*playerCharacterStates_mut)) {
             //std::cout << "Attacking!" << std::endl;
 
-            if (curDirection.x != 0.0f/* && curDirection.y == 0.0f*/) {
+            if (curFrameMovementDirection.x != 0.0f/* && curDirection.y == 0.0f*/) {
                 playerCharacterStates_mut->attackingSide = true;
             }
-            else if (curDirection.x == 0.0f) {
-                if (curDirection.y == -1.0f) {
+            else if (curFrameMovementDirection.x == 0.0f) {
+                if (curFrameMovementDirection.y == -1.0f) {
                     playerCharacterStates_mut->attackingDown = true;
                 }
-                else if (curDirection.y == 1.0f) {
+                else if (curFrameMovementDirection.y == 1.0f) {
                     playerCharacterStates_mut->attackingUp = true;
                 }
             }
@@ -340,21 +340,23 @@ int main(void)
             attackClosed = false;
         }
 
-        //VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV ORDER OF THIS TEST IS IMPORTANT! IT MUST HAPPEN BEFORE THE CURRENT MOVEMENT DIRECTION IS SET TO 0 BECAUSE PLAYER IS ATTACKING!
-        if (!Vector2Equals(curDirection, previousMovementDirection)) {
-            playerCharacter_mut->facingDirection.x = curDirection.x >= 0.0f ? 1.0f : -1.0f;
+        if (!Vector2Equals(curFrameMovementDirection, previousMovementDirection)) {
+            //std::cout << "Reset facing direction." << std::endl;
+            playerCharacter_mut->facingDirection.x = curFrameMovementDirection.x > 0.0f ? 1.0f : -1.0f;
             playerCharacter_mut->facingDirection.y = 1.0f;
         }
 
+        Vector2 curFrameVel = curFrameMovementDirection * Vector2{ 1.0f, -1.0f } * speed;
+        curFrameMovement = curFrameVel * deltaTime;
+
         if (IsCharacterAttacking(*playerCharacterStates_mut)) {
             //std::cout << "Stop moving while attacking." << std::endl;
-            curDirection = Vector2Zeros;
+            curFrameMovement = Vector2Zeros;
         }
 
-        curFrameMovement = curDirection * Vector2{ 1.0f, -1.0f } *speed * deltaTime;
         playerCharacter_mut->position.pos += curFrameMovement;
 
-        playerCharacter_mut->velocity.vel = curDirection * speed;
+        playerCharacter_mut->velocity.vel = curFrameVel;
         playerCharacterStates_mut->running = Vector2Length(playerCharacter_mut->velocity.vel) != 0.0f;
         playerCharacterStates_mut->idle = Vector2Length(playerCharacter_mut->velocity.vel) == 0.0f;
 
@@ -417,7 +419,7 @@ int main(void)
 
         EndDrawing();
 
-        previousMovementDirection = curDirection;
+        previousMovementDirection = curFrameMovementDirection;
     }
 
     CloseWindow();        // Close window and OpenGL context
