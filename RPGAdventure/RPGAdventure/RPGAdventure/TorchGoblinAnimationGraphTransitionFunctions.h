@@ -38,6 +38,7 @@ int TorchGoblinIdleToOthersAnimationChangeRule(std::any& parms)
 		}
 	}
 	else if (characterStates.idle) {
+		//std::cout << "Set idle." << std::endl;
 		return torchGoblin_CharacterSpriteSheet_idle_animation_yPos;
 	}
 	else {

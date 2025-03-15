@@ -173,9 +173,7 @@ int main(void)
     auto InitEnemyCharacterStatesSystem = world.system<CharacterStates, Goblin>()
         .kind(flecs::OnStart)
         .each([](flecs::iter& it, size_t, CharacterStates& characterStates, Goblin) {
-
             characterStates.idle = true;
-
         });
 
     auto UpdateSpriteSheetAnimationSystem = world.system<SpriteAnimation>()
@@ -322,6 +320,9 @@ int main(void)
         Character* playerCharacter_mut = e_Player.get_mut<Character>();
         CharacterStates* playerCharacterStates_mut = e_Player.get_mut<CharacterStates>();
 
+        Character* goblinCharacter_mut = e_Goblin.get_mut<Character>();
+        CharacterStates* goblinCharacterStates_mut = e_Goblin.get_mut<CharacterStates>();
+
         playerCharacter_mut->velocity.vel = Vector2Zeros;
 
         Vector2 curFrameMovementDirection = Vector2Zeros;
@@ -398,6 +399,39 @@ int main(void)
         playerCharacter_mut->velocity.vel = curFrameVel;
         playerCharacterStates_mut->running = Vector2Length(playerCharacter_mut->velocity.vel) != 0.0f;
         playerCharacterStates_mut->idle = Vector2Length(playerCharacter_mut->velocity.vel) == 0.0f;
+
+        Vector2 goblinDirToPlayer = Vector2Subtract(playerCharacter_mut->position.pos, goblinCharacter_mut->position.pos);
+        float distanceToPlayer = Vector2Length(goblinDirToPlayer);
+        goblinDirToPlayer = Vector2Normalize(goblinDirToPlayer);
+
+        goblinCharacter_mut->facingDirection = goblinDirToPlayer * Vector2{ 1 / abs(goblinDirToPlayer.x), 1 / abs(goblinDirToPlayer.y) };
+
+        if (distanceToPlayer >= 200.0f && !IsCharacterAttacking(*goblinCharacterStates_mut)) {
+            goblinCharacter_mut->velocity.vel = goblinDirToPlayer * speed;
+            goblinCharacter_mut->position.pos = goblinCharacter_mut->position.pos + goblinCharacter_mut->velocity.vel * deltaTime;
+
+            goblinCharacterStates_mut->attackingSide = false;
+            goblinCharacterStates_mut->running = true;
+            goblinCharacterStates_mut->idle = false;
+        }
+        else if(distanceToPlayer <= 100.0f) {
+            //std::cout << "goblin attacking." << GetTime() << std::endl;
+            //std::cout << "goblin attacking." << GetTime() << std::endl;
+            goblinCharacterStates_mut->attackingSide = true;
+            goblinCharacterStates_mut->running = false;
+            goblinCharacterStates_mut->idle = false;
+        }
+        else {
+            //std::cout << "goblin stopped attacking." << GetTime() << std::endl;
+            goblinCharacterStates_mut->attackingSide = false;
+            goblinCharacterStates_mut->running = false;
+            goblinCharacterStates_mut->idle = true;
+        }
+        //else {
+        //    goblinCharacterStates_mut->idle = true;
+        //    goblinCharacterStates_mut->attackingSide = false;
+        //    goblinCharacterStates_mut->running = false;
+        //}
 
         UpdatePlayerAnimationGraphSystem.run();
 
