@@ -20,3 +20,7 @@ public:
     bool attackingDown = false;
     bool attackingSide = false;
 };
+
+bool IsCharacterAttacking(CharacterStates& characterStates) {
+    return characterStates.attackingUp || characterStates.attackingDown || characterStates.attackingSide;
+}

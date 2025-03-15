@@ -5,10 +5,6 @@
 #include "Character.h"
 #include "AnimationGraph.h"
 
-bool IsCharacterAttacking(CharacterStates& characterStates) {
-	return characterStates.attackingUp || characterStates.attackingDown || characterStates.attackingSide;
-}
-
 #pragma region Running And Idle Animation States
 int KnightIdleToRunAnimationChangeRule(std::any& parms)
 {

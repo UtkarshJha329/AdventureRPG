@@ -139,12 +139,14 @@
     <ClInclude Include="AssetResourcesData.h" />
     <ClInclude Include="Character.h" />
     <ClInclude Include="flecs\flecs.h" />
-    <ClInclude Include="KnightAnimationGraphTransitionsFunctions.h" />
+    <ClInclude Include="KnightAnimationGraphTransitionFunctions.h" />
     <ClInclude Include="Position.h" />
+    <ClInclude Include="Room.h" />
     <ClInclude Include="SpriteAnimation.h" />
     <ClInclude Include="SpriteSheet.h" />
     <ClInclude Include="TextureResource.h" />
     <ClInclude Include="TileMap.h" />
+    <ClInclude Include="TorchGoblinAnimationGraphTransitionFunctions.h" />
     <ClInclude Include="Velocity.h" />
   </ItemGroup>
   <ItemGroup>

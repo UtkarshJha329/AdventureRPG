@@ -15,7 +15,10 @@
 #include "AnimationGraph.h"
 #include "TileMap.h"
 
-#include "KnightAnimationGraphTransitionsFunctions.h"
+#include "Room.h"
+
+#include "KnightAnimationGraphTransitionFunctions.h"
+#include "TorchGoblinAnimationGraphTransitionFunctions.h"
 
 #include <string>
 #include <vector>
@@ -24,6 +27,7 @@ const int screenWidth = 1280;
 const int screenHeight = 720;
 
 struct Player{public:};
+struct Goblin{public:};
 
 const int worldSizeX = 100;
 const int worldSizeY = 100;
@@ -60,6 +64,27 @@ int main(void)
     playerAnimationGraph->transitionConditionFunctions.push_back(KnightIdleToUpAttackAnimationChangeRule);
     playerAnimationGraph->transitionConditionFunctions.push_back(KnightUpAttackToIdleAnimationChangeRule);
 
+    auto e_Goblin = world.entity("Goblin");
+    e_Goblin.add<Goblin>();
+    e_Goblin.add<Character>();
+    e_Goblin.add<CharacterStates>();
+    e_Goblin.add<SpriteSheet>();
+    e_Goblin.add<TextureResource>();
+    e_Goblin.add<AnimationGraph>();
+
+    e_Goblin.set<TextureResource>({ torchGoblin_CharacterSpriteSheetLocation, torchGoblin_CharacterSpriteSheet_numSpriteCellsX, torchGoblin_CharacterSpriteSheet_numSpriteCellsY, torchGoblin_CharacterSpriteSheet_paddingX, torchGoblin_CharacterSpriteSheet_paddingY});
+
+    AnimationGraph* goblinAnimationGraph = e_Goblin.get_mut<AnimationGraph>();
+    goblinAnimationGraph->transitionConditionFunctions.push_back(TorchGoblinIdleToOthersAnimationChangeRule);
+    goblinAnimationGraph->transitionConditionFunctions.push_back(TorchGoblinRunToOthersAnimationChangeRule);
+    goblinAnimationGraph->transitionConditionFunctions.push_back(TorchGoblinIdleAndSideAttackAnimationChangeRule);
+    goblinAnimationGraph->transitionConditionFunctions.push_back(TorchGoblinIdleAndDownAttackAnimationChangeRule);
+    goblinAnimationGraph->transitionConditionFunctions.push_back(TorchGoblinIdleAndUpAttackAnimationChangeRule);
+
+    Character* goblin = e_Goblin.get_mut<Character>();
+    goblin->position.pos = Vector2{ 10.0f, 20.0f };
+    goblin->facingDirection = Vector2{ 1.0f, 1.0f };
+
     auto e_Camera2D = world.entity("Camera2D");
     e_Camera2D.add<Camera2D>();
 
@@ -79,6 +104,10 @@ int main(void)
     e_tileMapGround.set<Vector3>({ Vector3 {0.0f, 0.0f, 0.0f} });
 
     std::vector<Vector2> tileTextureIndexData(worldSizeX * worldSizeY, { 0.0f, 0.0f });
+
+    auto e_room1 = world.entity("Room 1");
+    e_room1.add<Position>();
+    e_room1.add<Room>();
 
     auto InitSpriteSheetSystem = world.system<SpriteSheet, TextureResource>()
         .kind(flecs::OnStart)
@@ -138,6 +167,14 @@ int main(void)
                     //std::cout << "tile[" << x << "][" << y << "] := " << tm.tiles[x][y].tileInSpriteSheet.x << ", " << tm.tiles[x][y].tileInSpriteSheet.y << ", " << tm.tiles[x][y].tileInSpriteSheet.width << ", " << tm.tiles[x][y].tileInSpriteSheet.height << std::endl;
                 }
             }
+
+        });
+
+    auto InitEnemyCharacterStatesSystem = world.system<CharacterStates, Goblin>()
+        .kind(flecs::OnStart)
+        .each([](flecs::iter& it, size_t, CharacterStates& characterStates, Goblin) {
+
+            characterStates.idle = true;
 
         });
 

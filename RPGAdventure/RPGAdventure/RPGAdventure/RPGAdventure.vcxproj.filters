@@ -44,7 +44,7 @@
     <ClInclude Include="AnimationGraph.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="KnightAnimationGraphTransitionsFunctions.h">
+    <ClInclude Include="KnightAnimationGraphTransitionFunctions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Velocity.h">
@@ -54,6 +54,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Position.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Room.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TorchGoblinAnimationGraphTransitionFunctions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

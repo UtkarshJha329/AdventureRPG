@@ -17,3 +17,10 @@ const unsigned int knightCharacterSpriteSheet_paddingY = 50;
 const unsigned int knightCharacterSpriteSheet_idle_animation_yPos = 0;
 const unsigned int knightCharacterSpriteSheet_attack_down_animation_yPos = 5;
 const unsigned int knightCharacterSpriteSheet_attack_up_animation_yPos = 6;
+
+//Torch Goblin
+const std::string  torchGoblin_CharacterSpriteSheetLocation = "Assets/Tiny Swords (Update 010)/Factions/Goblins/Troops/Torch/Blue/Torch_Blue.png";
+const unsigned int torchGoblin_CharacterSpriteSheet_numSpriteCellsX = 7;
+const unsigned int torchGoblin_CharacterSpriteSheet_numSpriteCellsY = 5;
+const unsigned int torchGoblin_CharacterSpriteSheet_paddingX = 50;
+const unsigned int torchGoblin_CharacterSpriteSheet_paddingY = 50;
