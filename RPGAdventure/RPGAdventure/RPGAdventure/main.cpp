@@ -536,6 +536,8 @@ int main(void)
         //std::cout << "Player room index:= " << curRoomIndex.x << ", " << curRoomIndex.y << std::endl;
 
         Vector2 cameraCurRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(camera->target, *camera), cameraScreenPos, curFrameMovementInPixels, offsetByTiles);
+        Vector2 curPlayerTileCoordIndex = CurrentTileCoordIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPos, curFrameMovementInPixels);
+        //std::cout << "Player room index.y := " << curRoomIndex.y << "camera room index.y := " << cameraCurRoomIndex.y << "playertile coord Index.y := " << curPlayerTileCoordIndex.y << std::endl;
         //std::cout << "camera room index:= " << cameraCurRoomIndex.x << ", " << cameraCurRoomIndex.y << std::endl;
         if (!Vector2Equals(curRoomIndex, cameraCurRoomIndex)) {
 

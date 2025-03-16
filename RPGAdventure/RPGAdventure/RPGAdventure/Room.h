@@ -138,7 +138,7 @@ Vector2 CurrentTileCoordIndex(Vector2 pointScreenPos, Vector2 cameraScreenPos, V
 
 	Vector2 offset = cameraScreenPos - movementInPixels;
 
-	pointScreenPos = pointScreenPos + offset;
+	pointScreenPos = pointScreenPos + offset - Vector2{ 0.0f, numTilesY * tileScaleY };
 
 	float modX = std::fmod(pointScreenPos.x, tileScaleX);
 	float modY = std::fmod(pointScreenPos.y, tileScaleY);
