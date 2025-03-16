@@ -37,7 +37,7 @@ const int attackingTime = 1.0f;
 const int roomSizeX = 1920.0f;
 const int roomSizeY = 1200.0f;
 
-const int numRooms = 10.0f;
+const int numRooms = 2;
 
 int main(void)
 {
@@ -100,6 +100,16 @@ int main(void)
     camera->rotation = 0.0f;
     camera->zoom = 1.0f;
 
+    auto e_MeasurementCamera2D = world.entity("Measurement Camera 2D");
+    e_MeasurementCamera2D.add<Camera2D>();
+
+    Camera2D* measurementCamera = e_MeasurementCamera2D.get_mut<Camera2D>();
+
+    measurementCamera->target = Vector2{ 0.0f, 0.0f };
+    measurementCamera->offset = Vector2{ screenWidth / 2.0f, screenHeight / 2.0f };
+    measurementCamera->rotation = 0.0f;
+    measurementCamera->zoom = 1.0f;
+
     auto e_tileMapGround = world.entity("Ground Tiles");
     e_tileMapGround.add<TextureResource>();
     e_tileMapGround.add<TileMap>();
@@ -110,7 +120,7 @@ int main(void)
 
     std::vector<Vector2> tileTextureIndexData(worldSizeX * worldSizeY, { 0.0f, 0.0f });
 
-    unsigned int curRoomIndex = 0;
+    int curRoomIndex = 0;
     std::vector<flecs::entity> roomEntities(numRooms);
 
     for (int i = 0; i < numRooms; i++)
@@ -120,7 +130,8 @@ int main(void)
         e_room.add<Position>();
         e_room.add<Room>();
         float pos = 0.0f;
-        e_room.set<Position>({ pos, i * roomSizeY * -1.0f });
+        e_room.set<Position>({ pos, i * roomSizeY * 1.0f });
+        //std::cout << "INITIALIZING ROOMS : >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> " << i << " := " << i * roomSizeY * 1.0f << std::endl;
 
         roomEntities[i] = e_room;
     }
@@ -458,20 +469,98 @@ int main(void)
         //std::cout << playerCharacter_mut->position.pos.x << ", " << playerCharacter_mut->position.pos.y << std::endl;
 
         Camera2D* camera = e_Camera2D.get_mut<Camera2D>();
+        auto e_curRoom = roomEntities[curRoomIndex];
         Vector2 posX = Vector2{ playerCharacter_mut->position.pos.x, camera->target.y };
         Vector2 posY = Vector2{ camera->target.x, playerCharacter_mut->position.pos.y };
+        //while (!PointLiesInsideRoom(e_curRoom.get_mut<Position>()->pos, playerCharacter_mut->position.pos, *camera, true, true)) {
+        //    std::cout << "Failed := " << curRoomIndex;
+        //    std::cout << "room pos.y := " << e_curRoom.get<Position>()->pos.y << std::endl;
 
-        auto e_curRoom = roomEntities[curRoomIndex];
+        //    curRoomIndex++;
+        //    if (curRoomIndex >= numRooms) {
+        //        curRoomIndex = 0;
+        //    }
+        //    e_curRoom = roomEntities[curRoomIndex];
+        //}
 
-        if (CanCameraMoveInRoom(e_curRoom.get_mut<Position>()->pos, posX, *camera)) {
-            //std::cout << "Inside : " << GetTime() << std::endl;
-            camera->target.x = posX.x;
+        //if (curRoomIndex == -1 || (curRoomIndex != -1 && !PointLiesInsideRoom(roomEntities[curRoomIndex].get_mut<Position>()->pos, playerCharacter_mut->position.pos, *camera, true, true)))
+        //{
+        //    bool foundRoomInWhichCameraIs = false;
+        //    for (int i = 0; i < numRooms; i++)
+        //    {
+        //        auto e_curRoom = roomEntities[i];
+        //        std::cout << "Room Index := " << i;
+        //        std::cout << "room pos.y := " << e_curRoom.get<Position>()->pos.y << std::endl;
+        //        if (!PointLiesInsideRoom(e_curRoom.get_mut<Position>()->pos, playerCharacter_mut->position.pos, *camera, true, true)) {
+        //            std::cout << "Failed := " << i << std::endl;
+
+        //            curRoomIndex = -1;
+        //        }
+        //        else {
+
+        //            foundRoomInWhichCameraIs = true;
+        //            curRoomIndex = i;
+        //            std::cout << "Found room := " << i << std::endl;
+
+        //            Vector2 posX = Vector2{ playerCharacter_mut->position.pos.x, camera->target.y };
+        //            Vector2 posY = Vector2{ camera->target.x, playerCharacter_mut->position.pos.y };
+
+        //            if (CanCameraMoveInRoom(e_curRoom.get_mut<Position>()->pos, posX, *camera)) {
+        //                //std::cout << "Inside : " << GetTime() << std::endl;
+        //                camera->target.x = posX.x;
+        //            }
+        //            if (CanCameraMoveInRoom(e_curRoom.get_mut<Position>()->pos, posY, *camera)) {
+        //                //std::cout << "Inside : " << GetTime() << std::endl;
+        //                camera->target.y = posY.y;
+        //            }
+
+        //            break;
+        //        }
+        //    }
+
+        //    if (!foundRoomInWhichCameraIs) {
+        //        std::cout << "Did not find room! Free cam." << std::endl;
+        //        camera->target = playerCharacter_mut->position.pos;
+        //        curRoomIndex = -1;
+        //    }
+
+        //}
+
+        Vector2 offsetByTiles = Vector2{ numTilesX * tileScaleX, numTilesY * tileScaleY } * -0.5f;
+        Vector2 worldDistanceToOffsetBy = GetScreenToWorld2D(offsetByTiles, *measurementCamera);
+
+        offsetByTiles *= 0.0f;
+        Vector2 cameraScreenPos = GetWorldToScreen2D(camera->target, *camera);
+        Vector2 curFrameMovementInPixels = GetWorldToScreen2D(curFrameMovement, *camera);
+        Vector2 curRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPos, curFrameMovementInPixels, offsetByTiles) * Vector2 { 1.0f, 1.0 };
+        //std::cout << "Player room index:= " << curRoomIndex.x << ", " << curRoomIndex.y << std::endl;
+
+        Vector2 cameraCurRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(camera->target, *camera), cameraScreenPos, curFrameMovementInPixels, offsetByTiles);
+        //std::cout << "camera room index:= " << cameraCurRoomIndex.x << ", " << cameraCurRoomIndex.y << std::endl;
+        if (!Vector2Equals(curRoomIndex, cameraCurRoomIndex)) {
+
+            Vector2 curRoomIndexDifference = Vector2{ (curRoomIndex.x - cameraCurRoomIndex.x) * -1.0f, curRoomIndex.y - cameraCurRoomIndex.y };
+
+            //std::cout << "room index difference := " << curRoomIndexDifference.x << ", " << curRoomIndexDifference.y;
+
+            Vector2 worldDistanceToOffsetCameraBy = curRoomIndexDifference * worldDistanceToOffsetBy;
+            //std::cout << " move camera by value := " << worldDistanceToOffsetCameraBy.x << ", " << worldDistanceToOffsetCameraBy.y << std::endl;
+
+
+            //camera->target = CameraPosForRoom(curRoomIndex, *camera);
+            //Vector2 offsetOnAxis = Vector2{ (float)((curRoomIndex.x > 0) ? 1 : 0), (float)((curRoomIndex.y > 0) ? 1 : 0) };
+            //camera->target = playerCharacter_mut->position.pos + worldDistanceToOffsetBy * offsetOnAxis;
+            //Vector2 offsetResult = worldDistanceToOffsetBy * offsetOnAxis;
+
+            //std::cout << offsetResult.x << ", " << offsetResult.y << std::endl;
+            //camera->target = playerCharacter_mut->position.pos;
+
+            //camera->target += (curRoomIndex - cameraCurRoomIndex) * worldDistanceToOffsetBy;
+            //camera->target = playerCharacter_mut->position.pos;
+            camera->target = camera->target + worldDistanceToOffsetCameraBy;
         }
-        if (CanCameraMoveInRoom(e_curRoom.get_mut<Position>()->pos, posY, *camera)) {
-            //std::cout << "Inside : " << GetTime() << std::endl;
-            camera->target.y = posY.y;
-        }
 
+        //camera->target = playerCharacter_mut->position.pos;
         camera->zoom += ((float)GetMouseWheelMove() * 0.05f);
 
 
