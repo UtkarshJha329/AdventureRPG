@@ -34,6 +34,11 @@ const int worldSizeY = 100;
 
 const int attackingTime = 1.0f;
 
+const int roomSizeX = 1920.0f;
+const int roomSizeY = 1200.0f;
+
+const int numRooms = 10.0f;
+
 int main(void)
 {
     flecs::world world;
@@ -105,9 +110,20 @@ int main(void)
 
     std::vector<Vector2> tileTextureIndexData(worldSizeX * worldSizeY, { 0.0f, 0.0f });
 
-    auto e_room1 = world.entity("Room 1");
-    e_room1.add<Position>();
-    e_room1.add<Room>();
+    unsigned int curRoomIndex = 0;
+    std::vector<flecs::entity> roomEntities(numRooms);
+
+    for (int i = 0; i < numRooms; i++)
+    {
+        std::string roomName = "Room " + std::to_string(i);
+        auto e_room = world.entity(roomName.c_str());
+        e_room.add<Position>();
+        e_room.add<Room>();
+        float pos = 0.0f;
+        e_room.set<Position>({ pos, i * roomSizeY * -1.0f });
+
+        roomEntities[i] = e_room;
+    }
 
     auto InitSpriteSheetSystem = world.system<SpriteSheet, TextureResource>()
         .kind(flecs::OnStart)
@@ -265,8 +281,7 @@ int main(void)
 
     int cameraScreenPosInSimpleTileMapRenderingShader = GetShaderLocation(simpleTileMapRenderingShader, "cameraPosOnScreen");
     Vector2 cameraScreenPos = GetWorldToScreen2D(camera->target, *camera);
-    SetShaderValue(simpleTileMapRenderingShader, cameraScreenPosInSimpleTileMapRenderingShader, &cameraScreenPos, SHADER_UNIFORM_VEC2);
-    
+    SetShaderValue(simpleTileMapRenderingShader, cameraScreenPosInSimpleTileMapRenderingShader, &cameraScreenPos, SHADER_UNIFORM_VEC2);    
 
     int cameraPosInSimpleTileMapRenderingShader = GetShaderLocation(simpleTileMapRenderingShader, "cameraPos");
     Vector2 cameraPos = camera->target;
@@ -275,6 +290,16 @@ int main(void)
     int movementInPixelsInSimpleTileMapRenderingShader = GetShaderLocation(simpleTileMapRenderingShader, "pixelMovement");
     Vector2 movement = Vector2Zeros;
     SetShaderValue(simpleTileMapRenderingShader, movementInPixelsInSimpleTileMapRenderingShader, &movement, SHADER_UNIFORM_VEC2);
+
+    int tileMapSizeXInSimpletileMapRenderingShader = GetShaderLocation(simpleTileMapRenderingShader, "totalTilesX");
+    float worldSizeOnX = (float)worldSizeX;
+    SetShaderValue(simpleTileMapRenderingShader, tileMapSizeXInSimpletileMapRenderingShader, &worldSizeOnX, SHADER_UNIFORM_FLOAT);
+
+    int tileMapSizeYInSimpletileMapRenderingShader = GetShaderLocation(simpleTileMapRenderingShader, "totalTilesY");
+    float worldSizeOnY = (float)worldSizeY;
+    SetShaderValue(simpleTileMapRenderingShader, tileMapSizeYInSimpletileMapRenderingShader, &worldSizeOnY, SHADER_UNIFORM_FLOAT);
+
+    unsigned int tileMapTextureSpriteSheetDataSSBO = rlLoadShaderBuffer(tileTextureIndexData.size() * sizeof(Vector2), tileTextureIndexData.data(), RL_STATIC_DRAW);
 
 
     unsigned int quadVAO = 0;
@@ -414,7 +439,7 @@ int main(void)
             goblinCharacterStates_mut->running = true;
             goblinCharacterStates_mut->idle = false;
         }
-        else if(distanceToPlayer <= 100.0f) {
+        else if(distanceToPlayer <= 150.0f) {
             //std::cout << "goblin attacking." << GetTime() << std::endl;
             //std::cout << "goblin attacking." << GetTime() << std::endl;
             goblinCharacterStates_mut->attackingSide = true;
@@ -427,17 +452,28 @@ int main(void)
             goblinCharacterStates_mut->running = false;
             goblinCharacterStates_mut->idle = true;
         }
-        //else {
-        //    goblinCharacterStates_mut->idle = true;
-        //    goblinCharacterStates_mut->attackingSide = false;
-        //    goblinCharacterStates_mut->running = false;
-        //}
 
         UpdatePlayerAnimationGraphSystem.run();
 
+        //std::cout << playerCharacter_mut->position.pos.x << ", " << playerCharacter_mut->position.pos.y << std::endl;
+
         Camera2D* camera = e_Camera2D.get_mut<Camera2D>();
-        camera->target = playerCharacter_mut->position.pos;
+        Vector2 posX = Vector2{ playerCharacter_mut->position.pos.x, camera->target.y };
+        Vector2 posY = Vector2{ camera->target.x, playerCharacter_mut->position.pos.y };
+
+        auto e_curRoom = roomEntities[curRoomIndex];
+
+        if (CanCameraMoveInRoom(e_curRoom.get_mut<Position>()->pos, posX, *camera)) {
+            //std::cout << "Inside : " << GetTime() << std::endl;
+            camera->target.x = posX.x;
+        }
+        if (CanCameraMoveInRoom(e_curRoom.get_mut<Position>()->pos, posY, *camera)) {
+            //std::cout << "Inside : " << GetTime() << std::endl;
+            camera->target.y = posY.y;
+        }
+
         camera->zoom += ((float)GetMouseWheelMove() * 0.05f);
+
 
         BeginDrawing();
 
@@ -456,6 +492,7 @@ int main(void)
             SetShaderValue(simpleTileMapRenderingShader, cameraPosInSimpleTileMapRenderingShader, &cameraPos, SHADER_UNIFORM_VEC2);
             SetShaderValue(simpleTileMapRenderingShader, movementInPixelsInSimpleTileMapRenderingShader, &curFrameMovementInPixels, SHADER_UNIFORM_VEC2);
 
+            rlBindShaderBuffer(tileMapTextureSpriteSheetDataSSBO, 3);
 
             rlActiveTextureSlot(0);
             rlEnableTexture(e_tileMapGround.get<TileMap>()->tilePallet.spriteSheetTexture.id);

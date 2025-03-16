@@ -1,4 +1,4 @@
-#version 330 core
+#version 460 core
 
 in vec2 texCoord;
 flat in vec2 cameraScreenPos;
@@ -7,7 +7,19 @@ flat in vec2 movementInPixels;
 
 out vec4 FragColor;
 
+struct CellPosInTextureAtlas{
+    float x, y;
+};
+
+layout(std430, binding = 3) buffer CellPosInTextureAtlasBuffer
+{
+    CellPosInTextureAtlas cellPosInTextureAtlas[];
+};
+
 uniform sampler2D ourTexture;
+
+uniform float totalTilesX;
+uniform float totalTilesY;
 
 void main()
 {
@@ -72,6 +84,10 @@ void main()
 				vec2 remappedTexCoords = calculatedTextureCoords * incrementCellSize * vec2(1.0, -1.0);
 
 				vec2 tileIndex = vec2(1.0, 2.0);
+				float indexCoordX = (offsetXCoord - modX) / divideAtScaleX;
+				float indexCoordY = (offsetYCoord - modY) / divideAtScaleY;
+
+				tileIndex = vec2(cellPosInTextureAtlas[int(indexCoordY * totalTilesX + indexCoordX)].x, cellPosInTextureAtlas[int(indexCoordY * totalTilesX + indexCoordX)].y);
 
 				vec2 remappedTexCoordsToTexture = remappedTexCoords + (tileIndex * incrementCellSize);
 

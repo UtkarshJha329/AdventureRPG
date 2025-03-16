@@ -8,15 +8,6 @@ flat out vec2 cameraScreenPos;
 flat out vec2 cameraPosInWorld;
 flat out vec2 movementInPixels;
 
-struct CellPosInTextureAtlas{
-    float x, y;
-};
-
-layout(std430, binding = 13) buffer CellPosInTextureAtlasBuffer
-{
-    CellPosInTextureAtlas cellPosInTextureAtlas[];
-};
-
 uniform vec2 cameraPosOnScreen;
 uniform vec2 cameraPos;
 uniform vec2 pixelMovement;
