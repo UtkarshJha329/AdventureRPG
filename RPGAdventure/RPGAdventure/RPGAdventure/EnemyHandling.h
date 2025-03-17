@@ -7,6 +7,48 @@
 
 #include "TorchGoblinAnimationGraphTransitionFunctions.h"
 
+bool IsMovementDirectionArrow(char c) {
+    return c == '^' || c == 'V' || c == '>' || c == '<';
+}
+
+Vector2 EnemyPartolDirection(TileMapData& tmd, int enemyTileMapDataX, int enemyTileMapDataY) {
+
+    Vector2 up = Vector2{ (float)enemyTileMapDataX, (float)enemyTileMapDataY + 1.0f };
+    Vector2 down = Vector2{ (float)enemyTileMapDataX, (float)enemyTileMapDataY - 1.0f };
+    Vector2 right = Vector2{ (float)enemyTileMapDataX + 2.0f, (float)enemyTileMapDataY };
+    Vector2 left = Vector2{ (float)enemyTileMapDataX - 2.0f, (float)enemyTileMapDataY };
+
+    //std::cout << "Checked Up := " << up.y << ", " << up.x << " :=: " << tmd.enemyTileMapData[up.y][up.x] << std::endl;
+    //std::cout << "Checked Down := " << down.y << ", " << down.x << " :=: " << tmd.enemyTileMapData[down.y][down.x] << std::endl;
+    //std::cout << "Checked Right := " << right.y << ", " << right.x << " :=: " << tmd.enemyTileMapData[right.y][right.x] << std::endl;
+    //std::cout << "Checked Left := " << left.y << ", " << left.x << " :=: " << tmd.enemyTileMapData[left.y][left.x] << std::endl;
+
+    if (tmd.enemyTileMapData[up.y][up.x] == 'V') {
+        return Vector2{ 0.0f, 1.0f };
+    }
+    else if (tmd.enemyTileMapData[down.y][down.x] == '^') {
+        return Vector2{ 0.0f, -1.0f };
+    }
+    else if (tmd.enemyTileMapData[right.y][right.x] == '>') {
+        return Vector2{ 1.0f, 0.0f };
+    }
+    else if (tmd.enemyTileMapData[left.y][left.x] == '<') {
+        return Vector2{ -1.0f, 0.0f };
+    }
+    //if (IsMovementDirectionArrow(tmd.enemyTileMapData[up.y][up.x])) {
+    //    return Vector2{ 0.0f, 1.0f };
+    //}
+    //else if (IsMovementDirectionArrow(tmd.enemyTileMapData[down.y][down.x])) {
+    //    return Vector2{ 0.0f, -1.0f };
+    //}
+    //else if (IsMovementDirectionArrow(tmd.enemyTileMapData[right.y][right.x])) {
+    //    return Vector2{ 1.0f, 0.0f };
+    //}
+    //else if (IsMovementDirectionArrow(tmd.enemyTileMapData[left.y][left.x])) {
+    //    return Vector2{ -1.0f, 0.0f };
+    //}
+}
+
 void SpawnGoblins(flecs::world& world, TileMapData& tmd, TileMap& tm, Camera2D& camera) {
 
     int tilesY = 7;
@@ -62,19 +104,21 @@ void SpawnGoblins(flecs::world& world, TileMapData& tmd, TileMap& tm, Camera2D& 
                 goblin->facingDirection = Vector2{ 1.0f, 1.0f };
 
                 Goblin* gob_mut = e_torchGoblinEntity.get_mut<Goblin>();
-                gob_mut->movingDirection = Vector2{ (float)GetRandomValue(-1, 1), (float)GetRandomValue(-1, 1) };
+                //gob_mut->movingDirection = Vector2{ (float)GetRandomValue(-1, 1), (float)GetRandomValue(-1, 1) };
+                gob_mut->movingDirection = EnemyPartolDirection(tmd, tileMapDataReadingX, tileMapDataReadingY);
+                std::cout << tileMapDataReadingX << ", " << tileMapDataReadingY << " :=  " << gob_mut->movingDirection.x << ", " << gob_mut->movingDirection.y << std::endl;
+                goblin->facingDirection = gob_mut->movingDirection;
+                //int setRandToZero = GetRandomValue(0, 1);
+                //if (setRandToZero == 0) {
+                //    gob_mut->movingDirection.x = 0;
+                //}
+                //else {
+                //    gob_mut->movingDirection.y = 0;
+                //}
 
-                int setRandToZero = GetRandomValue(0, 1);
-                if (setRandToZero == 0) {
-                    gob_mut->movingDirection.x = 0;
-                }
-                else {
-                    gob_mut->movingDirection.y = 0;
-                }
-
-                if (gob_mut->movingDirection.x == 0 && gob_mut->movingDirection.y == 0) {
-                    gob_mut->movingDirection = Vector2{ 1.0f, 0.0f };
-                }
+                //if (gob_mut->movingDirection.x == 0 && gob_mut->movingDirection.y == 0) {
+                //    gob_mut->movingDirection = Vector2{ 1.0f, 0.0f };
+                //}
 
                 tm.roomsData[roomIndexY][roomIndexX].torchGoblinEntitiesInThisRoom.push_back(e_torchGoblinEntity);
                 torchGoblin++;
