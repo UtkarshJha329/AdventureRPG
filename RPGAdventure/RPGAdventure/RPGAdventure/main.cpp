@@ -21,6 +21,8 @@
 #include "KnightAnimationGraphTransitionFunctions.h"
 #include "TorchGoblinAnimationGraphTransitionFunctions.h"
 
+#include "EnemyHandling.h"
+
 #include <string>
 #include <vector>
 #include <fstream>
@@ -29,11 +31,11 @@ const int screenWidth = 1280;
 const int screenHeight = 720;
 
 struct Player{public:};
-struct Goblin{public:};
 
 const int attackingTime = 1.0f;
 
 float speed = 1000.0f;
+float goblinSpeed = 100.0f;
 
 int main(void)
 {
@@ -65,27 +67,6 @@ int main(void)
     playerAnimationGraph->transitionConditionFunctions.push_back(KnightIdleToUpAttackAnimationChangeRule);
     playerAnimationGraph->transitionConditionFunctions.push_back(KnightUpAttackToIdleAnimationChangeRule);
 
-    auto e_Goblin = world.entity("Goblin");
-    e_Goblin.add<Goblin>();
-    e_Goblin.add<Character>();
-    e_Goblin.add<CharacterStates>();
-    e_Goblin.add<SpriteSheet>();
-    e_Goblin.add<TextureResource>();
-    e_Goblin.add<AnimationGraph>();
-
-    e_Goblin.set<TextureResource>({ torchGoblin_CharacterSpriteSheetLocation, torchGoblin_CharacterSpriteSheet_numSpriteCellsX, torchGoblin_CharacterSpriteSheet_numSpriteCellsY, torchGoblin_CharacterSpriteSheet_paddingX, torchGoblin_CharacterSpriteSheet_paddingY});
-
-    AnimationGraph* goblinAnimationGraph = e_Goblin.get_mut<AnimationGraph>();
-    goblinAnimationGraph->transitionConditionFunctions.push_back(TorchGoblinIdleToOthersAnimationChangeRule);
-    goblinAnimationGraph->transitionConditionFunctions.push_back(TorchGoblinRunToOthersAnimationChangeRule);
-    goblinAnimationGraph->transitionConditionFunctions.push_back(TorchGoblinIdleAndSideAttackAnimationChangeRule);
-    goblinAnimationGraph->transitionConditionFunctions.push_back(TorchGoblinIdleAndDownAttackAnimationChangeRule);
-    goblinAnimationGraph->transitionConditionFunctions.push_back(TorchGoblinIdleAndUpAttackAnimationChangeRule);
-
-    Character* goblin = e_Goblin.get_mut<Character>();
-    goblin->position.pos = Vector2{ 10.0f, 20.0f };
-    goblin->facingDirection = Vector2{ 1.0f, 1.0f };
-
     auto e_Camera2D = world.entity("Camera2D");
     e_Camera2D.add<Camera2D>();
 
@@ -116,10 +97,15 @@ int main(void)
     e_tileMapGround.set<Vector3>({ Vector3 {0.0f, 0.0f, 0.0f} });
 
     const TileMap* tm = e_tileMapGround.get<TileMap>();
+    TileMap* mut_tm = e_tileMapGround.get_mut<TileMap>();
+    TileMapData* mut_tmd = e_tileMapGround.get_mut<TileMapData>();
 
     //auto e_roomTileMapData = world.entity("Tilemap Data");
     //e_roomTileMapData.add<TileMapData>();
 
+    SpawnRooms(*mut_tm);
+    FillTileMapDataFromFile(*mut_tmd);
+    SpawnGoblins(world, *mut_tmd, *mut_tm);
 #pragma region Systems
 
     auto InitSpriteSheetSystem = world.system<SpriteSheet, TextureResource>()
@@ -152,52 +138,16 @@ int main(void)
             }
         });
 
-    auto InitTileMapRoomData = world.system<TileMapData>()
-        .kind(flecs::OnStart)
-        .each([](flecs::iter& it, size_t, TileMapData& tmd) {
-
-            //tmd.tileMapData = std::vector<std::string>(totalTilesX * totalTilesY);
-
-            for (int y = 0; y < totalRoomsY; y++)
-            {
-                for (int x = 0; x < totalRoomsX; x++)
-                {
-                    //std::string curRoomTileMapDataLoc = roomsTileMapDataFileLoc + "room" + std::to_string(y) + std::to_string(x) + ".map";
-                    std::string tileMapDataLoc = roomsTileMapDataFileLoc + "roomMapData.map";
-
-                    //std::ifstream file(curRoomTileMapDataLoc);
-                    std::ifstream file(tileMapDataLoc);
-
-                    if (!file.is_open()) {
-                        //std::cerr << "Error opening file: " << curRoomTileMapDataLoc << std::endl;
-                        std::cerr << "Error opening file: " << tileMapDataLoc << std::endl;
-                        return 1;
-                    }
-
-                    std::string line;
-
-                    while (std::getline(file, line)) {
-
-                        tmd.tileMapData.push_back(line);
-                    }
-
-                    file.close();
-                }
-            }
-
-
-        });
-
-
     auto InitTileMapSystem = world.system<TextureResource, TileMapData, TileMap>()
         .kind(flecs::OnStart)
-        .each([](flecs::iter& it, size_t, TextureResource& tr, TileMapData& tmd, TileMap& tm) {
+        .each([&world](flecs::iter& it, size_t, TextureResource& tr, TileMapData& tmd, TileMap& tm) {
 
             //std::cout << "Init Tile Map Sprites." << std::endl;
             InitSpriteSheet(tm.tilePallet, tr.texSrc, tr.numSpriteCellsX, tr.numSpriteCellsY, tr.paddingX, tr.paddingY);
 
             //std::cout << tm.tilePallet.cell.height << std::endl;
 
+            int tilesY = 7;
             int totalY = 70;
             tm.tileTextureIndexData = std::vector<float2>(totalTilesX * totalY, { 0.0f, 0.0f });
 
@@ -374,9 +324,6 @@ int main(void)
         Character* playerCharacter_mut = e_Player.get_mut<Character>();
         CharacterStates* playerCharacterStates_mut = e_Player.get_mut<CharacterStates>();
 
-        Character* goblinCharacter_mut = e_Goblin.get_mut<Character>();
-        CharacterStates* goblinCharacterStates_mut = e_Goblin.get_mut<CharacterStates>();
-
         playerCharacter_mut->velocity.vel = Vector2Zeros;
 
         Vector2 curFrameMovementDirection = Vector2Zeros;
@@ -472,7 +419,7 @@ int main(void)
         int nextTileIndex = nextPlayerTileCoordIndex.y * totalTilesX + nextPlayerTileCoordIndex.x;
 
         //Stop player from moving 
-        if ((int)(tm->tileTextureIndexData[nextTileIndex].v[0]) == 4 || (int)(tm->tileTextureIndexData[nextTileIndex].v[0]) == 9) {
+        if (IsTileFilledWithCollider(*mut_tm, nextPlayerTileCoordIndex, totalTilesX)) {
             //std::cout << "Moving into an empty tile." << std::endl;
             curFrameMovement = curFrameMovement * -1.0f;
             curFrameVel = curFrameVel * -1.0f;
@@ -493,33 +440,9 @@ int main(void)
 #pragma endregion
 
 #pragma region Goblin Stuff
-        Vector2 goblinDirToPlayer = Vector2Subtract(playerCharacter_mut->position.pos, goblinCharacter_mut->position.pos);
-        float distanceToPlayer = Vector2Length(goblinDirToPlayer);
-        goblinDirToPlayer = Vector2Normalize(goblinDirToPlayer);
 
-        goblinCharacter_mut->facingDirection = goblinDirToPlayer * Vector2{ 1 / abs(goblinDirToPlayer.x), 1 / abs(goblinDirToPlayer.y) };
+        MakeGoblinsMoveIt(world, *mut_tm, curRoomIndexNextPlayerPos, playerCharacter_mut->position.pos, goblinSpeed, deltaTime, *camera);
 
-        if (distanceToPlayer >= 200.0f && !IsCharacterAttacking(*goblinCharacterStates_mut)) {
-            goblinCharacter_mut->velocity.vel = goblinDirToPlayer * speed;
-            goblinCharacter_mut->position.pos = goblinCharacter_mut->position.pos + goblinCharacter_mut->velocity.vel * deltaTime;
-
-            goblinCharacterStates_mut->attackingSide = false;
-            goblinCharacterStates_mut->running = true;
-            goblinCharacterStates_mut->idle = false;
-        }
-        else if(distanceToPlayer <= 150.0f) {
-            //std::cout << "goblin attacking." << GetTime() << std::endl;
-            //std::cout << "goblin attacking." << GetTime() << std::endl;
-            goblinCharacterStates_mut->attackingSide = true;
-            goblinCharacterStates_mut->running = false;
-            goblinCharacterStates_mut->idle = false;
-        }
-        else {
-            //std::cout << "goblin stopped attacking." << GetTime() << std::endl;
-            goblinCharacterStates_mut->attackingSide = false;
-            goblinCharacterStates_mut->running = false;
-            goblinCharacterStates_mut->idle = true;
-        }
 #pragma endregion
 
 #pragma region Update Animations Based On Current Data

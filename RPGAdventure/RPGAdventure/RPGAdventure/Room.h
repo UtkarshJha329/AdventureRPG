@@ -35,6 +35,10 @@ constexpr float totalTilesY = (float)((int)(totalRoomsY * numTilesY));
 class Room {
 
 public:
+
+	int indexX;
+	int indexY;
+
 	std::vector<flecs::entity> torchGoblinEntitiesInThisRoom;
 };
 

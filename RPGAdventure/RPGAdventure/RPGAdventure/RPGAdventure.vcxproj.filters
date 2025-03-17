@@ -65,6 +65,9 @@
     <ClInclude Include="TileMapData.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="EnemyHandling.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\SimpleTileMapRenderingShader.frag" />

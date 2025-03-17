@@ -138,6 +138,7 @@
     <ClInclude Include="AnimationGraph.h" />
     <ClInclude Include="AssetResourcesData.h" />
     <ClInclude Include="Character.h" />
+    <ClInclude Include="EnemyHandling.h" />
     <ClInclude Include="flecs\flecs.h" />
     <ClInclude Include="KnightAnimationGraphTransitionFunctions.h" />
     <ClInclude Include="Position.h" />

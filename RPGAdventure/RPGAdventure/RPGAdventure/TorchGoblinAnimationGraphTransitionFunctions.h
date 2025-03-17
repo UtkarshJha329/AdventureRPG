@@ -7,6 +7,11 @@
 #include "Character.h"
 #include "AnimationGraph.h"
 
+struct Goblin {
+
+public:
+	Vector2 movingDirection = Vector2{ 1.0f, 0.0f };
+};
 
 const unsigned int torchGoblin_CharacterSpriteSheet_idle_animation_yPos = 0;
 const unsigned int torchGoblin_CharacterSpriteSheet_running_animation_yPos = 1;
