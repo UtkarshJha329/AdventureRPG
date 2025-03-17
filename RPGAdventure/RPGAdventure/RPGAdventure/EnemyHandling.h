@@ -25,7 +25,7 @@ void SpawnGoblins(flecs::world& world, TileMapData& tmd, TileMap& tm) {
 
             if (tmd.enemyTileMapData[tileMapDataReadingY][tileMapDataReadingX] == 'T') {
 
-                std::cout << "Added torch goblin." << std::endl;
+                //std::cout << "Added torch goblin." << std::endl;
 
                 int roomIndexX = x / numTilesX;
                 int roomIndexY = y / tilesY;
@@ -111,6 +111,12 @@ void MakeGoblinsMoveIt(flecs::world& world, TileMap& tm, Vector2 roomIndex, Vect
 
                 goblinNextPos = goblinCharacter_mut->position.pos + curFrameMovement * 4.0f;
                 goblin_mut->movingDirection *= -1.0f;
+            }
+
+            goblinCharacter_mut->facingDirection.x = curFrameMovement.x == 0.0f ? 1.0f : curFrameMovement.x / abs(curFrameMovement.x);
+            goblinCharacter_mut->facingDirection.y = curFrameMovement.y == 0.0f ? 1.0f : curFrameMovement.y / abs(curFrameMovement.y);
+            if (goblinCharacter_mut->facingDirection.y < 0.0) {
+                goblinCharacter_mut->facingDirection.x = -1.0f;
             }
 
             goblinCharacter_mut->velocity.vel = goblinVel;

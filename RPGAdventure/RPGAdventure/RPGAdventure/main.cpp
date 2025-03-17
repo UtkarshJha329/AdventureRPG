@@ -35,7 +35,6 @@ struct Player{public:};
 const int attackingTime = 1.0f;
 
 float speed = 1000.0f;
-float goblinSpeed = 100.0f;
 
 int main(void)
 {
@@ -308,7 +307,7 @@ int main(void)
     float attackCloseTime = 0.0f;
 
     Vector2 previousMovementDirection = Vector2Zeros;
-
+    Vector2 prioritizeAxis = Vector2Zeros;
 
     // VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV GAME LOOP VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
 
@@ -364,21 +363,43 @@ int main(void)
         }
 #pragma endregion
         
+#pragma region Player Facing Direction.
+        //Handle player facing direction.
+
+        if (!Vector2Equals(curFrameMovementDirection, previousMovementDirection)) {
+            //std::cout << "Reset facing direction." << std::endl;
+            if (curFrameMovementDirection.x != 0) {
+                playerCharacter_mut->facingDirection.x = curFrameMovementDirection.x == 0.0f ? playerCharacter_mut->facingDirection.x : curFrameMovementDirection.x / abs(curFrameMovementDirection.x);
+            }
+
+            playerCharacter_mut->facingDirection.y = curFrameMovementDirection.y == 0.0f ? playerCharacter_mut->facingDirection.y : curFrameMovementDirection.y / abs(curFrameMovementDirection.y);
+            if (curFrameMovementDirection.y != 0.0) {
+                prioritizeAxis.y = 1.0f;
+                prioritizeAxis.x = 0.0f;
+            }
+            if (curFrameMovementDirection.x != 0.0f) {
+                prioritizeAxis.x = 1.0f;
+                prioritizeAxis.y = 0.0f;
+            }
+        }
+#pragma endregion
+
 #pragma region Player Attaccking Input.
         //Handle player attacking input.
         if (IsKeyPressed(KEY_SPACE) && !IsCharacterAttacking(*playerCharacterStates_mut)) {
             //std::cout << "Attacking!" << std::endl;
 
-            if (curFrameMovementDirection.x != 0.0f/* && curDirection.y == 0.0f*/) {
+            if (curFrameMovementDirection.x != 0.0f && playerCharacter_mut->facingDirection.x != 0.0f/* && curDirection.y == 0.0f*/) {
                 playerCharacterStates_mut->attackingSide = true;
             }
-            else if (curFrameMovementDirection.x == 0.0f) {
-                if (curFrameMovementDirection.y == -1.0f) {
-                    playerCharacterStates_mut->attackingDown = true;
-                }
-                else if (curFrameMovementDirection.y == 1.0f) {
-                    playerCharacterStates_mut->attackingUp = true;
-                }
+            else if (prioritizeAxis.x == 1.0f) {
+                playerCharacterStates_mut->attackingSide = true;
+            }
+            else if (playerCharacter_mut->facingDirection.y == -1.0f) {
+                playerCharacterStates_mut->attackingDown = true;
+            }
+            else if (playerCharacter_mut->facingDirection.y == 1.0f) {
+                playerCharacterStates_mut->attackingUp = true;
             }
 
             attackCloseTime = GetTime() + attackingTime;
@@ -386,16 +407,6 @@ int main(void)
         }
 #pragma endregion
 
-#pragma region Player Facing Direction.
-        //Handle player facing direction.
-        if (!Vector2Equals(curFrameMovementDirection, previousMovementDirection)) {
-            //std::cout << "Reset facing direction." << std::endl;
-            if (curFrameMovementDirection.x != 0) {
-                playerCharacter_mut->facingDirection.x = curFrameMovementDirection.x;
-            }
-            playerCharacter_mut->facingDirection.y = 1.0f;
-        }
-#pragma endregion
 
 #pragma region Handle Player Movement And Animations.
 
@@ -441,7 +452,7 @@ int main(void)
 
 #pragma region Goblin Stuff
 
-        MakeGoblinsMoveIt(world, *mut_tm, curRoomIndexNextPlayerPos, playerCharacter_mut->position.pos, goblinSpeed, deltaTime, *camera);
+        MakeGoblinsMoveIt(world, *mut_tm, curRoomIndexNextPlayerPos, playerCharacter_mut->position.pos, Goblin::goblinSpeed, deltaTime, *camera);
 
 #pragma endregion
 

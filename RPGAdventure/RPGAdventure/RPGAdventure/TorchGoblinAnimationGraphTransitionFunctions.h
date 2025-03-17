@@ -11,6 +11,7 @@ struct Goblin {
 
 public:
 	Vector2 movingDirection = Vector2{ 1.0f, 0.0f };
+	inline static float goblinSpeed = 20.0f;
 };
 
 const unsigned int torchGoblin_CharacterSpriteSheet_idle_animation_yPos = 0;
