@@ -137,6 +137,7 @@
   <ItemGroup>
     <ClInclude Include="AnimationGraph.h" />
     <ClInclude Include="AssetResourcesData.h" />
+    <ClInclude Include="BoundingBox2D.h" />
     <ClInclude Include="Character.h" />
     <ClInclude Include="EnemyHandling.h" />
     <ClInclude Include="flecs\flecs.h" />

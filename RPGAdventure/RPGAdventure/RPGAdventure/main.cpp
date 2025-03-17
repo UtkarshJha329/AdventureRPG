@@ -11,6 +11,7 @@
 #include "TextureResource.h"
 
 #include "SpriteSheet.h"
+#include "BoundingBox2D.h"
 #include "SpriteAnimation.h"
 #include "AnimationGraph.h"
 #include "TileMap.h"
@@ -33,7 +34,8 @@ const int screenHeight = 720;
 struct Player{public:};
 
 const int attackingTime = 1.0f;
-
+const int timeOutForTouchingEnemy = 1.0f;
+float timeToMoveAfterEnemyTouch = 0.0f;
 float speed = 1000.0f;
 
 int main(void)
@@ -45,6 +47,7 @@ int main(void)
     e_Player.add<Character>();
     e_Player.add<CharacterStates>();
     e_Player.add<SpriteSheet>();
+    e_Player.add<BoundingBox2D>();
     e_Player.add<TextureResource>();
     //e_Player.add<SpriteAnimation>();
     e_Player.add<AnimationGraph>();
@@ -112,6 +115,16 @@ int main(void)
         .each([](flecs::iter& it, size_t, SpriteSheet& ss, TextureResource& tr) {
             //std::cout << "Init Sprite Sheet System." << std::endl;
             InitSpriteSheet(ss, tr.texSrc, tr.numSpriteCellsX, tr.numSpriteCellsY, tr.paddingX, tr.paddingY);
+        });
+
+    auto InitBoundingBoxSystem = world.system<SpriteSheet, BoundingBox2D>()
+        .kind(flecs::OnStart)
+        .each([](flecs::iter& it, size_t, SpriteSheet& ss, BoundingBox2D& bb) {
+
+            float width = ss.cell.width * 0.5f;
+            float height = ss.cell.height * 0.5f;
+            bb.boundingBoxForSprite = Rectangle{ -(width * 0.5f), -(height * 0.5f), width, height };
+            bb.reducedBoundingBoxForSprite = Rectangle{ -(width * 0.5f * 0.5f), -(height * 0.5f * 0.5f), width * 0.5f, height * 0.5f };
         });
 
     auto InitSpriteSheetAnimationSystem = world.system<SpriteSheet, SpriteAnimation>()
@@ -211,14 +224,30 @@ int main(void)
             UpdateAnimationGraphCurrentAnimation(animationGraph);
         });
 
-    auto AnimationGraphDrawingSystem = world.system<SpriteSheet, AnimationGraph, Character>()
+    auto GoblinAnimationGraphDrawingSystem = world.system<SpriteSheet, AnimationGraph, Character, Goblin>()
         .kind(flecs::OnUpdate)
-        .each([](flecs::iter& it, size_t, SpriteSheet& ss, AnimationGraph& animationGraph, Character& character) {
+        .each([](flecs::iter& it, size_t, SpriteSheet& ss, AnimationGraph& animationGraph, Character& character, Goblin) {
             //std::cout << "Update Sprite Sheet Animation Drawing System." << std::endl;
             //spriteAnimation.curAnimationStateY = 5;
             Rectangle view = animationGraph.animations[animationGraph.currentAnimationPlaying].curFrameView;
             view.width *= character.facingDirection.x;
             DrawTextureRec(ss.spriteSheetTexture, view, character.position.pos - Vector2{ss.cell.width * 0.5f, ss.cell.height * 0.5f}, WHITE);
+        });
+
+    auto PlayerAnimationGraphDrawingSystem = world.system<SpriteSheet, AnimationGraph, Character, Player>()
+        .kind(flecs::OnUpdate)
+        .each([](flecs::iter& it, size_t, SpriteSheet& ss, AnimationGraph& animationGraph, Character& character, Player) {
+            //std::cout << "Update Sprite Sheet Animation Drawing System." << std::endl;
+            //spriteAnimation.curAnimationStateY = 5;
+            Rectangle view = animationGraph.animations[animationGraph.currentAnimationPlaying].curFrameView;
+            view.width *= character.facingDirection.x;
+
+            if (timeToMoveAfterEnemyTouch < GetTime()) {
+                DrawTextureRec(ss.spriteSheetTexture, view, character.position.pos - Vector2{ss.cell.width * 0.5f, ss.cell.height * 0.5f}, WHITE);
+            }
+            else {
+                DrawTextureRec(ss.spriteSheetTexture, view, character.position.pos - Vector2{ss.cell.width * 0.5f, ss.cell.height * 0.5f}, RED);
+            }
         });
 
 #pragma endregion
@@ -310,7 +339,6 @@ int main(void)
     Vector2 prioritizeAxis = Vector2Zeros;
 
     // VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV GAME LOOP VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
-
     while (!WindowShouldClose())
     {
 
@@ -320,6 +348,8 @@ int main(void)
         //Variables.
         Camera2D* camera = e_Camera2D.get_mut<Camera2D>();
 
+        SpriteSheet* playerSS = e_Player.get_mut<SpriteSheet>();
+        BoundingBox2D* playerBB2D = e_Player.get_mut<BoundingBox2D>();
         Character* playerCharacter_mut = e_Player.get_mut<Character>();
         CharacterStates* playerCharacterStates_mut = e_Player.get_mut<CharacterStates>();
 
@@ -349,18 +379,23 @@ int main(void)
 
 #pragma region Player Movement Input.
         //Handle player movement input.
-        if (IsKeyDown(KEY_RIGHT)) {
-            curFrameMovementDirection.x = 1.0;
+
+        if (timeToMoveAfterEnemyTouch < GetTime()) {
+
+            if (IsKeyDown(KEY_RIGHT)) {
+                curFrameMovementDirection.x = 1.0;
+            }
+            if (IsKeyDown(KEY_LEFT)) {
+                curFrameMovementDirection.x = -1.0;
+            }
+            if (IsKeyDown(KEY_UP)) {
+                curFrameMovementDirection.y = 1.0;
+            }
+            if (IsKeyDown(KEY_DOWN)) {
+                curFrameMovementDirection.y = -1.0;
+            }
         }
-        if (IsKeyDown(KEY_LEFT)) {
-            curFrameMovementDirection.x = -1.0;
-        }
-        if (IsKeyDown(KEY_UP)) {
-            curFrameMovementDirection.y = 1.0;
-        }
-        if (IsKeyDown(KEY_DOWN)) {
-            curFrameMovementDirection.y = -1.0;
-        }
+
 #pragma endregion
         
 #pragma region Player Facing Direction.
@@ -423,8 +458,44 @@ int main(void)
 
         Vector2 cameraScreenPosNextPlayerPos = GetWorldToScreen2D(camera->target, *camera);
         Vector2 curFrameMovementInPixelsNextPlayerPos = GetWorldToScreen2D(curFrameMovement, *camera);
-        Vector2 curRoomIndexNextPlayerPosX = CurrentRoomIndex(GetWorldToScreen2D(nextPlayerPosX, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
-        Vector2 curRoomIndexNextPlayerPosY = CurrentRoomIndex(GetWorldToScreen2D(nextPlayerPosY, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
+
+        Vector2 curRoomIndexNextPlayerPos = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
+
+        bool touchedEnemy = false;
+        for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
+
+            auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
+            BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
+            Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
+
+            Rectangle playerWorldBB = Rectangle{ nextPlayerPosX.x + playerBB2D->reducedBoundingBoxForSprite.width, nextPlayerPosY.y + playerBB2D->reducedBoundingBoxForSprite.height, playerBB2D->reducedBoundingBoxForSprite.width, playerBB2D->reducedBoundingBoxForSprite.height };
+            Rectangle curGoblinWorldBB = Rectangle{ curGoblinCharacter->position.pos.x + curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinCharacter->position.pos.y + curGoblinBB2D->reducedBoundingBoxForSprite.height, curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinBB2D->reducedBoundingBoxForSprite.height };
+
+
+            if (CheckCollisionRecs(playerWorldBB, curGoblinWorldBB)) {
+                //std::cout << "Player and " << e_CurrentGoblin.name() << " collided!!!!" << std::endl;
+                Vector2 knockBackDir = Vector2{ nextPlayerPosX.x, nextPlayerPosY.y } - curGoblinCharacter->position.pos;
+                knockBackDir = Vector2Normalize(knockBackDir);
+
+                float knockBackStrength = 50.0f;
+
+                curFrameMovement = knockBackDir * knockBackStrength;
+                touchedEnemy = true;
+            }
+        }
+
+        if (touchedEnemy) {
+            timeToMoveAfterEnemyTouch = GetTime() + timeOutForTouchingEnemy;
+        }
+
+        nextPlayerPosX = playerCharacter_mut->position.pos + Vector2{ curFrameMovement.x, 0.0f } *4.0f;
+        nextPlayerPosY = playerCharacter_mut->position.pos + Vector2{ 0.0f, curFrameMovement.y } *4.0f;
+        
+        //cameraScreenPosNextPlayerPos = GetWorldToScreen2D(camera->target, *camera);
+        curFrameMovementInPixelsNextPlayerPos = GetWorldToScreen2D(curFrameMovement, *camera);
+
+        Vector2 nextRoomIndexNextPlayerPosX = CurrentRoomIndex(GetWorldToScreen2D(nextPlayerPosX, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
+        Vector2 nextRoomIndexNextPlayerPosY = CurrentRoomIndex(GetWorldToScreen2D(nextPlayerPosY, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
 
         Vector2 nextPlayerTileCoordIndexX = CurrentTileCoordIndex(GetWorldToScreen2D(nextPlayerPosX, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos);
         Vector2 nextPlayerTileCoordIndexY = CurrentTileCoordIndex(GetWorldToScreen2D(nextPlayerPosY, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos);
@@ -449,11 +520,12 @@ int main(void)
 
         playerCharacterStates_mut->running = Vector2Length(playerCharacter_mut->velocity.vel) != 0.0f;
         playerCharacterStates_mut->idle = Vector2Length(playerCharacter_mut->velocity.vel) == 0.0f;
+
 #pragma endregion
 
 #pragma region Goblin Stuff
 
-        Vector2 curRoomIndexNextPlayerPos = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
+        curRoomIndexNextPlayerPos = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
         MakeGoblinsMoveIt(world, *mut_tm, curRoomIndexNextPlayerPos, playerCharacter_mut->position.pos, Goblin::goblinSpeed, deltaTime, *camera);
 
 #pragma endregion
@@ -525,18 +597,26 @@ int main(void)
         //SpriteSheetAnimationDrawingSystem.run();
         //std::cout << "Before draw: " << playerCharacterStates_mut->attackingSide << std::endl;
 
-        AnimationGraphDrawingSystem.run();
+        GoblinAnimationGraphDrawingSystem.run();
+        PlayerAnimationGraphDrawingSystem.run();
         //std::cout << "After draw: " << playerCharacterStates_mut->attackingSide << std::endl;
 
 
-        float resolution = screenWidth / screenHeight;
-        float width = screenWidth / 12;
-        float height = width / resolution;
+        //float resolution = screenWidth / screenHeight;
+        //float width = screenWidth / 12;
+        //float height = width / resolution;
         //Vector2 attackFacingDebugPos = curPlayerPos->pos + (curDirection * Vector2{ width, height });
         //DrawRectangle(attackFacingDebugPos.x, attackFacingDebugPos.y, (int)width, (int)height, RED);
 
         //DrawCircle(curPlayerPos->pos.x, curPlayerPos->pos.y, 10.0f, RED);
-        DrawRectangleLines(playerCharacter_mut->position.pos.x - (width * 0.5f), playerCharacter_mut->position.pos.y - (height * 0.5f), width, height, RED);
+        //DrawRectangleLines(playerCharacter_mut->position.pos.x - (width * 0.5f), playerCharacter_mut->position.pos.y - (height * 0.5f), width, height, RED);
+        float width = playerBB2D->reducedBoundingBoxForSprite.width;
+        float height = playerBB2D->reducedBoundingBoxForSprite.height;
+
+        float posX = playerCharacter_mut->position.pos.x + playerBB2D->reducedBoundingBoxForSprite.x;
+        float posY = playerCharacter_mut->position.pos.y + playerBB2D->reducedBoundingBoxForSprite.y;
+
+        DrawRectangleLines(posX, posY, width, height, RED);
 
         EndMode2D();
 
