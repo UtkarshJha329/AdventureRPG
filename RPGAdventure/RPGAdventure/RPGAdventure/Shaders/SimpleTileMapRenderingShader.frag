@@ -146,9 +146,6 @@ void main()
 			float indexCoordX = (offsetXCoord - modX) / tileScaleX;
 			float indexCoordY = (offsetYCoord - modY) / tileScaleY;
 
-			float totalTilesX = 100;
-			float totalTilesY = 100;
-
 //			indexCoordX = indexCoordX / numTilesX;
 //			indexCoordY = indexCoordY / numTilesY;
 

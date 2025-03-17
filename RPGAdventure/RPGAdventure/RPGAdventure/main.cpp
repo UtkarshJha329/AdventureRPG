@@ -29,17 +29,7 @@ const int screenHeight = 720;
 struct Player{public:};
 struct Goblin{public:};
 
-const int worldSizeX = 100;
-const int worldSizeY = 100;
-
 const int attackingTime = 1.0f;
-
-const int roomSizeX = 1920.0f;
-const int roomSizeY = 1200.0f;
-
-typedef struct float2 {
-    float v[2];
-} float2;
 
 float speed = 1000.0f;
 
@@ -122,8 +112,10 @@ int main(void)
     e_tileMapGround.set<TextureResource>({ terrainTopFlatTileMap, terrainTopFlatTileMap_numSpriteCellsX, terrainTopFlatTileMap_numSpriteCellsY, terrainTopFlatTileMap_paddingX, terrainTopFlatTileMap_paddingY });
     e_tileMapGround.set<Vector3>({ Vector3 {0.0f, 0.0f, 0.0f} });
 
-    //std::vector<Vector2> tileTextureIndexData(worldSizeX * worldSizeY, { 0.0f, 0.0f });
-    std::vector<float2> tileTextureIndexData(worldSizeX * worldSizeY, { 0.0f, 0.0f });
+    const TileMap* tm = e_tileMapGround.get<TileMap>();
+
+
+#pragma region Systems
 
     auto InitSpriteSheetSystem = world.system<SpriteSheet, TextureResource>()
         .kind(flecs::OnStart)
@@ -157,74 +149,23 @@ int main(void)
 
     auto InitTileMapSystem = world.system<TextureResource, TileMap>()
         .kind(flecs::OnStart)
-        .each([&tileTextureIndexData](flecs::iter& it, size_t, TextureResource& tr, TileMap& tm) {
+        .each([](flecs::iter& it, size_t, TextureResource& tr, TileMap& tm) {
 
             //std::cout << "Init Tile Map Sprites." << std::endl;
             InitSpriteSheet(tm.tilePallet, tr.texSrc, tr.numSpriteCellsX, tr.numSpriteCellsY, tr.paddingX, tr.paddingY);
 
-            std::cout << tm.tilePallet.cell.height << std::endl;
+            //std::cout << tm.tilePallet.cell.height << std::endl;
 
-            tm.sizeX = worldSizeX;
-            tm.sizeY = worldSizeY;
+            tm.tileTextureIndexData = std::vector<float2>(totalTilesX * totalTilesY, { 0.0f, 0.0f });
 
-            //tm.tiles.reserve(tm.sizeX);
-            for (int y = 0; y < tm.sizeY; y++)
+            for (int y = 0; y < totalTilesY; y++)
             {
-                tm.tiles.push_back(std::vector<Tile>(tm.sizeY));
                 //tm.tiles[x].reserve(tm.sizeY);
-                for (int x = 0; x < tm.sizeX; x++)
+                for (int x = 0; x < totalTilesX; x++)
                 {
-                    tm.tiles[y][x].tileInSpriteSheet = tm.tilePallet.cell;
+                    tm.tileTextureIndexData[y * totalTilesX + x].v[0] = (float)(GetRandomValue(0, (int)(tm.tilePallet.numSpriteCellsX - 1)));
+                    tm.tileTextureIndexData[y * totalTilesX + x].v[1] = (float)(GetRandomValue(0, (int)(tm.tilePallet.numSpriteCellsY - 1)));
 
-                    //tm.tiles[x][y].tileInSpriteSheet.x = GetRandomValue(0, tm.tilePallet.numSpriteCellsX - 1) * tm.tilePallet.cell.width;
-                    //tm.tiles[x][y].tileInSpriteSheet.y = GetRandomValue(0, tm.tilePallet.numSpriteCellsY - 1) * tm.tilePallet.cell.height;
-                    //tm.tiles[y][x].tileInSpriteSheet.x = (float)(GetRandomValue(0, (int)(tm.tilePallet.numSpriteCellsX - 1)));
-                    //tm.tiles[y][x].tileInSpriteSheet.y = (float)(GetRandomValue(0, (int)(tm.tilePallet.numSpriteCellsY - 1)));
-
-                    //tm.tiles[x][y].tileInSpriteSheet.x = 1 * tm.tilePallet.cell.width;
-                    //tm.tiles[x][y].tileInSpriteSheet.y = 2 * tm.tilePallet.cell.height;
-                    //tm.tiles[x][y].tileInSpriteSheet.x = 4 * tm.tilePallet.cell.width;
-                    //tm.tiles[x][y].tileInSpriteSheet.y = 5 * tm.tilePallet.cell.height;
-
-                    //tm.tiles[x][y].tileInSpriteSheet.x = 3;
-                    //tm.tiles[x][y].tileInSpriteSheet.y = 0;
-
-                    //std::cout << tm.tiles[x][y].tileInSpriteSheet.x << ", " << tm.tiles[x][y].tileInSpriteSheet.y << std::endl;
-                    //tileTextureIndexData[y * worldSizeX + x].x = tm.tiles[y][x].tileInSpriteSheet.x;
-                    //tileTextureIndexData[y * worldSizeX + x].y = tm.tiles[y][x].tileInSpriteSheet.y;
-
-                    tileTextureIndexData[y * worldSizeX + x].v[0] = (float)(GetRandomValue(0, (int)(tm.tilePallet.numSpriteCellsX - 1)));
-                    tileTextureIndexData[y * worldSizeX + x].v[1] = (float)(GetRandomValue(0, (int)(tm.tilePallet.numSpriteCellsY - 1)));
-
-                    //tileTextureIndexData[y * worldSizeX + x].v[0] = 3;
-                    //tileTextureIndexData[y * worldSizeX + x].v[1] = 0;
-                    
-                    //if (x == 3) {
-                    //    tileTextureIndexData[y * worldSizeX + x].v[0] = 1;
-                    //    tileTextureIndexData[y * worldSizeX + x].v[1] = 2;
-                    //    //std::cout << "tile[" << y << "][" << x << "] := " << tileTextureIndexData[y * worldSizeX + x].v[0] << ", " << tileTextureIndexData[y * worldSizeX + x].v[1] << std::endl;
-                    //}
-
-                    //tileTextureIndexData[y * worldSizeX + x].v[0] = x == 3 ? 1 : 3;
-                    //tileTextureIndexData[y * worldSizeX + x].v[1] = x == 3 ? 2 : 0;
-
-
-                    //if (x == 0 && y == 0) {
-                    //    tileTextureIndexData[y * worldSizeX + x].v[0] = 6;
-                    //    tileTextureIndexData[y * worldSizeX + x].v[1] = 2;
-                    //}
-
-                    //if (x == 3 && y == 3) {
-                    //    tileTextureIndexData[y * worldSizeX + x].v[0] = 1;
-                    //    tileTextureIndexData[y * worldSizeX + x].v[1] = 2;
-                    //}
-
- /*                   if (x % 3 == 0 || y % 5 == 0) {
-                        tileTextureIndexData[y * worldSizeX + x].x = 3;
-                        tileTextureIndexData[y * worldSizeX + x].y = 0;
-                    }*/
-
-                    //std::cout << "tile[" << y << "][" << x << "] := " << tm.tiles[x][y].tileInSpriteSheet.x << ", " << tm.tiles[x][y].tileInSpriteSheet.y << ", " << tm.tiles[x][y].tileInSpriteSheet.width << ", " << tm.tiles[x][y].tileInSpriteSheet.height << std::endl;
                     //std::cout << "tile[" << y << "][" << x << "] := " << tileTextureIndexData[y * worldSizeX + x].v[0] << ", " << tileTextureIndexData[y * worldSizeX + x].v[1] << std::endl;
                 }
             }
@@ -235,13 +176,6 @@ int main(void)
         .kind(flecs::OnStart)
         .each([](flecs::iter& it, size_t, CharacterStates& characterStates, Goblin) {
             characterStates.idle = true;
-        });
-
-    auto UpdateSpriteSheetAnimationSystem = world.system<SpriteAnimation>()
-        .kind(flecs::OnUpdate)
-        .each([](flecs::iter& it, size_t, SpriteAnimation& spriteAnimation) {
-            //std::cout << "Update Sprite Sheet Animation System." << std::endl;
-            UpdateAnimation(spriteAnimation);
         });
 
     auto UpdatePlayerAnimationGraphSystem = world.system<AnimationGraph, CharacterStates>()
@@ -269,14 +203,6 @@ int main(void)
             UpdateAnimationGraphCurrentAnimation(animationGraph);
         });
 
-    auto SpriteSheetAnimationDrawingSystem = world.system<SpriteSheet, SpriteAnimation, Position>()
-        .kind(flecs::OnUpdate)
-        .each([](flecs::iter& it, size_t, SpriteSheet& ss, SpriteAnimation& spriteAnimation, Position& position) {
-            //std::cout << "Update Sprite Sheet Animation Drawing System." << std::endl;
-            //spriteAnimation.curAnimationStateY = 5;
-            DrawTextureRec(ss.spriteSheetTexture, spriteAnimation.curFrameView, position.pos - Vector2{ ss.cell.width * 0.5f, ss.cell.height * 0.5f }, WHITE);
-        });
-
     auto AnimationGraphDrawingSystem = world.system<SpriteSheet, AnimationGraph, Character>()
         .kind(flecs::OnUpdate)
         .each([](flecs::iter& it, size_t, SpriteSheet& ss, AnimationGraph& animationGraph, Character& character) {
@@ -287,39 +213,15 @@ int main(void)
             DrawTextureRec(ss.spriteSheetTexture, view, character.position.pos - Vector2{ss.cell.width * 0.5f, ss.cell.height * 0.5f}, WHITE);
         });
 
-    auto TileMapDrawingSystem = world.system<TileMap>()
-        .kind(flecs::OnUpdate)
-        .each([e_Camera2D](flecs::iter& it, size_t, TileMap& tm) {
-
-            Vector2 windowStart = GetScreenToWorld2D(Vector2{ 0.0f, 0.0f }, *e_Camera2D.get<Camera2D>());
-            Vector2 windowEnd = GetScreenToWorld2D(Vector2{ (float)GetScreenWidth(), (float)GetScreenHeight()}, *e_Camera2D.get<Camera2D>());
-
-            //std::cout << "Drawing tiles." << std::endl;
-            BeginMode2D(*e_Camera2D.get<Camera2D>());
-                for (int x = 0; x < tm.sizeX; x++)
-                {
-                    float xPos = (float)x * tm.tiles[x][0].tileInSpriteSheet.width;
-                    if (xPos >= windowStart.x && xPos <= windowEnd.x) {
-
-                        for (int y = 0; y < tm.sizeY; y++)
-                        {
-                            float yPos = (float)y * tm.tiles[x][y].tileInSpriteSheet.height;
-                            if (yPos >= windowStart.y && yPos <= windowEnd.y)
-                            {
-                                DrawTextureRec(tm.tilePallet.spriteSheetTexture, tm.tiles[x][y].tileInSpriteSheet, Vector2{ xPos , yPos }, WHITE);
-                            }
-                        }
-                    }
-                }
-            EndMode2D();
-        });
+#pragma endregion
 
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
-
 
     world.progress(GetFrameTime());
 
     //std::cout << "Starting Game Loop..." << std::endl;
+
+#pragma region Shader Creation and Initialisations
 
     Shader simpleTileMapRenderingShader = LoadShader(TextFormat("Shaders/SimpleTileMapRenderingShader.vert", GLSL_VERSION),
         TextFormat("Shaders/SimpleTileMapRenderingShader.frag", GLSL_VERSION));
@@ -337,11 +239,11 @@ int main(void)
     SetShaderValue(simpleTileMapRenderingShader, movementInPixelsInSimpleTileMapRenderingShader, &movement, SHADER_UNIFORM_VEC2);
 
     int tileMapSizeXInSimpletileMapRenderingShader = GetShaderLocation(simpleTileMapRenderingShader, "totalTilesX");
-    float worldSizeOnX = (float)worldSizeX;
+    float worldSizeOnX = (float)totalTilesX;
     SetShaderValue(simpleTileMapRenderingShader, tileMapSizeXInSimpletileMapRenderingShader, &worldSizeOnX, SHADER_UNIFORM_FLOAT);
 
     int tileMapSizeYInSimpletileMapRenderingShader = GetShaderLocation(simpleTileMapRenderingShader, "totalTilesY");
-    float worldSizeOnY = (float)worldSizeY;
+    float worldSizeOnY = (float)totalTilesY;
     SetShaderValue(simpleTileMapRenderingShader, tileMapSizeYInSimpletileMapRenderingShader, &worldSizeOnY, SHADER_UNIFORM_FLOAT);
 
     int tileMapCellWidthInSimpletileMapRenderingShader = GetShaderLocation(simpleTileMapRenderingShader, "cellWidth");
@@ -352,8 +254,11 @@ int main(void)
     float cellHeight = (float)e_tileMapGround.get<TileMap>()->tilePallet.cell.height;
     SetShaderValue(simpleTileMapRenderingShader, tileMapCellHeightInSimpletileMapRenderingShader, &cellHeight, SHADER_UNIFORM_FLOAT);
 
-    unsigned int tileMapTextureSpriteSheetDataSSBO = rlLoadShaderBuffer(tileTextureIndexData.size() * sizeof(float2), tileTextureIndexData.data(), RL_STATIC_DRAW);
+    unsigned int tileMapTextureSpriteSheetDataSSBO = rlLoadShaderBuffer(tm->tileTextureIndexData.size() * sizeof(float2), tm->tileTextureIndexData.data(), RL_STATIC_DRAW);
 
+#pragma endregion
+
+#pragma region Screen Render Quad
 
     unsigned int quadVAO = 0;
     unsigned int quadVBO = 0;
@@ -388,6 +293,8 @@ int main(void)
 
     rlEnableVertexArray(0);
 
+#pragma endregion
+
     bool attackClosed = true;
     float attackCloseTime = 0.0f;
 
@@ -398,6 +305,9 @@ int main(void)
 
     while (!WindowShouldClose())
     {
+
+        //std::cout << totalTilesX << ", " << totalTilesY << std::endl;
+
 #pragma region Get Component References.
         //Variables.
         Camera2D* camera = e_Camera2D.get_mut<Camera2D>();
@@ -416,7 +326,6 @@ int main(void)
 
         float deltaTime = GetFrameTime();
 #pragma endregion
-
 
 #pragma region Handle Open Attack States For Player
 
@@ -501,9 +410,9 @@ int main(void)
 
         Vector2 nextPlayerTileCoordIndex = CurrentTileCoordIndex(GetWorldToScreen2D(nextPlayerPos, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos);
 
-        int nextTileIndex = nextPlayerTileCoordIndex.y * worldSizeX + nextPlayerTileCoordIndex.x;
+        int nextTileIndex = nextPlayerTileCoordIndex.y * totalTilesX + nextPlayerTileCoordIndex.x;
 
-        if ((int)(tileTextureIndexData[nextTileIndex].v[0]) == 4 || (int)(tileTextureIndexData[nextTileIndex].v[0]) == 9) {
+        if ((int)(tm->tileTextureIndexData[nextTileIndex].v[0]) == 4 || (int)(tm->tileTextureIndexData[nextTileIndex].v[0]) == 9) {
             //std::cout << "Moving into an empty tile." << std::endl;
             curFrameMovement = curFrameMovement * -1.0f;
             curFrameVel = curFrameVel * -1.0f;
@@ -550,12 +459,7 @@ int main(void)
         UpdatePlayerAnimationGraphSystem.run();
 #pragma endregion
 
-
-        //std::cout << playerCharacter_mut->position.pos.x << ", " << playerCharacter_mut->position.pos.y << std::endl;
-
-        //Camera2D* camera = e_Camera2D.get_mut<Camera2D>();
-        //Vector2 posX = Vector2{ playerCharacter_mut->position.pos.x, camera->target.y };
-        //Vector2 posY = Vector2{ camera->target.x, playerCharacter_mut->position.pos.y };
+#pragma region Camera Room Movement.
 
         Vector2 offsetByTiles = Vector2{ numTilesX * tileScaleX, numTilesY * tileScaleY } * -0.5f;
         Vector2 worldDistanceToOffsetBy = GetScreenToWorld2D(offsetByTiles, *measurementCamera);
@@ -563,15 +467,7 @@ int main(void)
         Vector2 cameraScreenPos = GetWorldToScreen2D(camera->target, *camera);
         Vector2 curFrameMovementInPixels = GetWorldToScreen2D(curFrameMovement, *camera);
         Vector2 curRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPos, curFrameMovementInPixels) * Vector2 { 1.0f, 1.0 };
-
         Vector2 cameraCurRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(camera->target, *camera), cameraScreenPos, curFrameMovementInPixels);
-        Vector2 curPlayerTileCoordIndex = CurrentTileCoordIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPos, curFrameMovementInPixels);
-
-        int curTileIndex = curPlayerTileCoordIndex.y * worldSizeX + curPlayerTileCoordIndex.x;
-
-        if ((int)(tileTextureIndexData[curTileIndex].v[0]) == 4 || (int)(tileTextureIndexData[curTileIndex].v[0]) == 9) {
-            std::cout << "Stepped into an empty tile." << std::endl;
-        }
 
         if (!Vector2Equals(curRoomIndex, cameraCurRoomIndex)) {
 
@@ -584,6 +480,7 @@ int main(void)
         //camera->target = playerCharacter_mut->position.pos;
         camera->zoom += ((float)GetMouseWheelMove() * 0.05f);
 
+#pragma endregion
 
 #pragma region Draw To Screen.
 

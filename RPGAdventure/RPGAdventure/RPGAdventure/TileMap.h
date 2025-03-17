@@ -5,6 +5,10 @@
 #include "raylib/raymath.h"
 #include "SpriteSheet.h"
 
+typedef struct float2 {
+	float v[2];
+} float2;
+
 class Tile {
 
 public:
@@ -17,8 +21,6 @@ class TileMap {
 public:
 
 	SpriteSheet tilePallet;
-	std::vector<std::vector<Tile>> tiles;
 
-	unsigned int sizeX;
-	unsigned int sizeY;
+	std::vector<float2> tileTextureIndexData;
 };
