@@ -104,7 +104,7 @@ int main(void)
 
     SpawnRooms(*mut_tm);
     FillTileMapDataFromFile(*mut_tmd);
-    SpawnGoblins(world, *mut_tmd, *mut_tm);
+    SpawnGoblins(world, *mut_tmd, *mut_tm, *measurementCamera);
 #pragma region Systems
 
     auto InitSpriteSheetSystem = world.system<SpriteSheet, TextureResource>()

@@ -29,6 +29,8 @@ constexpr float totalRoomsY = 10.0f;
 constexpr float totalTilesX = (float)((int)(totalRoomsX * numTilesX));
 constexpr float totalTilesY = (float)((int)(totalRoomsY * numTilesY));
 
+constexpr int roundedNumTilesY = 7;
+
 //constexpr float totalTilesX = 36.0f;
 //constexpr float totalTilesY = 36.0f;
 

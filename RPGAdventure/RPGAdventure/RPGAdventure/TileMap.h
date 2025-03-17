@@ -48,24 +48,33 @@ void SpawnRooms(TileMap& tm) {
     }
 }
 
-bool IsTileFilledWithCollider(TileMap& tm, Vector2 tileToCheckIindex, int numTilesX) {
+bool IsTileFilledWithCollider(TileMap& tm, Vector2 tileToCheckIndex, int numTilesX, bool roomMode = false) {
+
+    if (roomMode) {
+        bool borderTileX = (int)tileToCheckIndex.x % (int)(11) == 0 || (int)tileToCheckIndex.x % (int)(12) == 0;
+        bool borderTileY = (int)tileToCheckIndex.y % (int)(6) == 0 || (int)tileToCheckIndex.y % (int)(7) == 0;
+
+        if (borderTileX || borderTileY) {
+            return true;
+        }
+    }
 
     for (int i = 0; i < blockingTilesX.size(); i++)
     {
-        if (tm.tileTextureIndexData[tileToCheckIindex.y * numTilesX + tileToCheckIindex.x].v[0] == blockingTilesX[i]) {
+        if (tm.tileTextureIndexData[tileToCheckIndex.y * numTilesX + tileToCheckIndex.x].v[0] == blockingTilesX[i]) {
             return true;
         }
     }
 
     for (int i = 0; i < blockingTileIndices.size(); i++)
     {
-        if (tm.tileTextureIndexData[tileToCheckIindex.y * numTilesX + tileToCheckIindex.x].v[0] == blockingTileIndices[i].x && tm.tileTextureIndexData[tileToCheckIindex.y * numTilesX + tileToCheckIindex.x].v[1] == blockingTileIndices[i].y) {
+        if (tm.tileTextureIndexData[tileToCheckIndex.y * numTilesX + tileToCheckIndex.x].v[0] == blockingTileIndices[i].x && tm.tileTextureIndexData[tileToCheckIndex.y * numTilesX + tileToCheckIndex.x].v[1] == blockingTileIndices[i].y) {
             return true;
         }
     }
 
-    if (tileToCheckIindex.x >= totalTilesX || tileToCheckIindex.y >= totalTilesY
-        || tileToCheckIindex.x < 0 || tileToCheckIindex.y < 0) {
+    if (tileToCheckIndex.x >= totalTilesX || tileToCheckIndex.y >= totalTilesY
+        || tileToCheckIndex.x < 0 || tileToCheckIndex.y < 0) {
         return true;
     }
 

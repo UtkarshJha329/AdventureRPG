@@ -7,7 +7,7 @@
 
 #include "TorchGoblinAnimationGraphTransitionFunctions.h"
 
-void SpawnGoblins(flecs::world& world, TileMapData& tmd, TileMap& tm) {
+void SpawnGoblins(flecs::world& world, TileMapData& tmd, TileMap& tm, Camera2D& camera) {
 
     int tilesY = 7;
     int totalY = 70;
@@ -49,7 +49,16 @@ void SpawnGoblins(flecs::world& world, TileMapData& tmd, TileMap& tm) {
                 goblinAnimationGraph->transitionConditionFunctions.push_back(TorchGoblinIdleAndUpAttackAnimationChangeRule);
 
                 Character* goblin = e_torchGoblinEntity.get_mut<Character>();
-                goblin->position.pos = Vector2{ x * 20.0f, y * 20.0f };
+
+                int numTilesYRounded = 7;
+                Vector2 tileRoomIndex = Vector2{ x / numTilesX, y / (float)numTilesYRounded };
+                //Vector2 offsetByTiles = Vector2{ ((tileRoomIndex.x * numTilesX) + x) * tileScaleX, ((tileRoomIndex.y * numTilesYRounded) + y) * tileScaleY } + Vector2{ tileScaleX * 0.5f, tileScaleY * 0.25f };
+                Vector2 offsetByTiles = Vector2{ (x) * tileScaleX, (y) * tileScaleY } + Vector2{ tileScaleX * 0.5f, tileScaleY * 0.25f };
+                Vector2 worldDistanceToOffsetBy = GetScreenToWorld2D(offsetByTiles, camera);
+
+                //std::cout << worldDistanceToOffsetBy.x << ", " << worldDistanceToOffsetBy.y << std::endl;
+
+                goblin->position.pos = Vector2{ worldDistanceToOffsetBy.x, worldDistanceToOffsetBy.y };
                 goblin->facingDirection = Vector2{ 1.0f, 1.0f };
 
                 Goblin* gob_mut = e_torchGoblinEntity.get_mut<Goblin>();
@@ -104,7 +113,7 @@ void MakeGoblinsMoveIt(flecs::world& world, TileMap& tm, Vector2 roomIndex, Vect
             int nextTileIndex = nextGoblinTileCoordIndex.y * totalTilesX + nextGoblinTileCoordIndex.x;
 
             //Stop player from moving 
-            if (IsTileFilledWithCollider(tm, nextGoblinTileCoordIndex, totalTilesX)) {
+            if (IsTileFilledWithCollider(tm, nextGoblinTileCoordIndex, totalTilesX, true)) {
                 //std::cout << "Moving into an empty tile." << std::endl;
                 curFrameMovement = curFrameMovement * -1.0f;
                 goblinVel = goblinVel * -1.0f;
