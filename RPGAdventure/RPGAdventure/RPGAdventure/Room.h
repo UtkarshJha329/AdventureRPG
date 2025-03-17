@@ -159,7 +159,7 @@ Vector2 CurrentTileCoordIndex(Vector2 pointScreenPos, Vector2 cameraScreenPos, V
 	return Vector2{ indexCoordX, indexCoordY * -1.0f };
 }
 
-Vector2 CurrentRoomIndex(Vector2 pointScreenPos, Vector2 cameraScreenPos, Vector2 movementInPixels, Vector2 offsetByTiles) {
+Vector2 CurrentRoomIndex(Vector2 pointScreenPos, Vector2 cameraScreenPos, Vector2 movementInPixels, Vector2 offsetByTiles = Vector2Zeros) {
 
 	float totalTilesX = 100;
 	float totalTilesY = 100;

@@ -393,8 +393,15 @@ int main(void)
 
     Vector2 previousMovementDirection = Vector2Zeros;
 
+
+    // VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV GAME LOOP VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
+
     while (!WindowShouldClose())
     {
+#pragma region Get Component References.
+        //Variables.
+        Camera2D* camera = e_Camera2D.get_mut<Camera2D>();
+
         Character* playerCharacter_mut = e_Player.get_mut<Character>();
         CharacterStates* playerCharacterStates_mut = e_Player.get_mut<CharacterStates>();
 
@@ -408,8 +415,12 @@ int main(void)
         Vector2 curFrameMovement = Vector2Zeros;
 
         float deltaTime = GetFrameTime();
+#pragma endregion
 
 
+#pragma region Handle Open Attack States For Player
+
+        //Handle open attack states for player.
         if (!attackClosed) {
             if (attackCloseTime <= GetTime()) {
                 //std::cout << "Stopped Attack!" << std::endl;
@@ -420,9 +431,10 @@ int main(void)
                 attackClosed = true;
             }
         }
+#pragma endregion
 
-
-
+#pragma region Player Movement Input.
+        //Handle player movement input.
         if (IsKeyDown(KEY_RIGHT)) {
             curFrameMovementDirection.x = 1.0;
         }
@@ -435,7 +447,10 @@ int main(void)
         if (IsKeyDown(KEY_DOWN)) {
             curFrameMovementDirection.y = -1.0;
         }
-
+#pragma endregion
+        
+#pragma region Player Attaccking Input.
+        //Handle player attacking input.
         if (IsKeyPressed(KEY_SPACE) && !IsCharacterAttacking(*playerCharacterStates_mut)) {
             //std::cout << "Attacking!" << std::endl;
 
@@ -454,7 +469,10 @@ int main(void)
             attackCloseTime = GetTime() + attackingTime;
             attackClosed = false;
         }
+#pragma endregion
 
+#pragma region Player Facing Direction.
+        //Handle player facing direction.
         if (!Vector2Equals(curFrameMovementDirection, previousMovementDirection)) {
             //std::cout << "Reset facing direction." << std::endl;
             if (curFrameMovementDirection.x != 0) {
@@ -462,6 +480,9 @@ int main(void)
             }
             playerCharacter_mut->facingDirection.y = 1.0f;
         }
+#pragma endregion
+
+#pragma region Handle Player Movement And Animations.
 
         Vector2 curFrameVel = curFrameMovementDirection * Vector2{ 1.0f, -1.0f } * speed;
         curFrameMovement = curFrameVel * deltaTime;
@@ -469,14 +490,33 @@ int main(void)
         if (IsCharacterAttacking(*playerCharacterStates_mut)) {
             //std::cout << "Stop moving while attacking." << std::endl;
             curFrameMovement = Vector2Zeros;
+            curFrameVel = Vector2Zeros;
+        }
+
+        Vector2 nextPlayerPos = playerCharacter_mut->position.pos + curFrameMovement * 4.0f;
+
+        Vector2 cameraScreenPosNextPlayerPos = GetWorldToScreen2D(camera->target, *camera);
+        Vector2 curFrameMovementInPixelsNextPlayerPos = GetWorldToScreen2D(curFrameMovement, *camera);
+        Vector2 curRoomIndexNextPlayerPos = CurrentRoomIndex(GetWorldToScreen2D(nextPlayerPos, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
+
+        Vector2 nextPlayerTileCoordIndex = CurrentTileCoordIndex(GetWorldToScreen2D(nextPlayerPos, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos);
+
+        int nextTileIndex = nextPlayerTileCoordIndex.y * worldSizeX + nextPlayerTileCoordIndex.x;
+
+        if ((int)(tileTextureIndexData[nextTileIndex].v[0]) == 4 || (int)(tileTextureIndexData[nextTileIndex].v[0]) == 9) {
+            //std::cout << "Moving into an empty tile." << std::endl;
+            curFrameMovement = curFrameMovement * -1.0f;
+            curFrameVel = curFrameVel * -1.0f;
         }
 
         playerCharacter_mut->position.pos += curFrameMovement;
-
         playerCharacter_mut->velocity.vel = curFrameVel;
+
         playerCharacterStates_mut->running = Vector2Length(playerCharacter_mut->velocity.vel) != 0.0f;
         playerCharacterStates_mut->idle = Vector2Length(playerCharacter_mut->velocity.vel) == 0.0f;
+#pragma endregion
 
+#pragma region Goblin Stuff
         Vector2 goblinDirToPlayer = Vector2Subtract(playerCharacter_mut->position.pos, goblinCharacter_mut->position.pos);
         float distanceToPlayer = Vector2Length(goblinDirToPlayer);
         goblinDirToPlayer = Vector2Normalize(goblinDirToPlayer);
@@ -504,50 +544,39 @@ int main(void)
             goblinCharacterStates_mut->running = false;
             goblinCharacterStates_mut->idle = true;
         }
+#pragma endregion
 
+#pragma region Update Animations Based On Current Data
         UpdatePlayerAnimationGraphSystem.run();
+#pragma endregion
+
 
         //std::cout << playerCharacter_mut->position.pos.x << ", " << playerCharacter_mut->position.pos.y << std::endl;
 
-        Camera2D* camera = e_Camera2D.get_mut<Camera2D>();
-        Vector2 posX = Vector2{ playerCharacter_mut->position.pos.x, camera->target.y };
-        Vector2 posY = Vector2{ camera->target.x, playerCharacter_mut->position.pos.y };
+        //Camera2D* camera = e_Camera2D.get_mut<Camera2D>();
+        //Vector2 posX = Vector2{ playerCharacter_mut->position.pos.x, camera->target.y };
+        //Vector2 posY = Vector2{ camera->target.x, playerCharacter_mut->position.pos.y };
 
         Vector2 offsetByTiles = Vector2{ numTilesX * tileScaleX, numTilesY * tileScaleY } * -0.5f;
         Vector2 worldDistanceToOffsetBy = GetScreenToWorld2D(offsetByTiles, *measurementCamera);
 
-        offsetByTiles *= 0.0f;
         Vector2 cameraScreenPos = GetWorldToScreen2D(camera->target, *camera);
         Vector2 curFrameMovementInPixels = GetWorldToScreen2D(curFrameMovement, *camera);
-        Vector2 curRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPos, curFrameMovementInPixels, offsetByTiles) * Vector2 { 1.0f, 1.0 };
-        //std::cout << "Player room index:= " << curRoomIndex.x << ", " << curRoomIndex.y << std::endl;
+        Vector2 curRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPos, curFrameMovementInPixels) * Vector2 { 1.0f, 1.0 };
 
-        Vector2 cameraCurRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(camera->target, *camera), cameraScreenPos, curFrameMovementInPixels, offsetByTiles);
+        Vector2 cameraCurRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(camera->target, *camera), cameraScreenPos, curFrameMovementInPixels);
         Vector2 curPlayerTileCoordIndex = CurrentTileCoordIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPos, curFrameMovementInPixels);
 
         int curTileIndex = curPlayerTileCoordIndex.y * worldSizeX + curPlayerTileCoordIndex.x;
 
-        float cellWidth = e_tileMapGround.get<TileMap>()->tilePallet.cell.width;
-        float cellHeight = e_tileMapGround.get<TileMap>()->tilePallet.cell.height;
-
-        //std::cout << (int)(tileTextureIndexData[curTileIndex].x / cellWidth) << ", " << (int)(tileTextureIndexData[curTileIndex].y / cellHeight) << std::endl;
-        std::cout << (int)(tileTextureIndexData[curTileIndex].v[0]) << ", " << (int)(tileTextureIndexData[curTileIndex].v[1]) << ", " << curPlayerTileCoordIndex.x << ", " << curPlayerTileCoordIndex.y << std::endl;
-
-        //if ((int)(tileTextureIndexData[curTileIndex].x / cellWidth) == 4 || (int)(tileTextureIndexData[curTileIndex].x / cellWidth) == 9) {
         if ((int)(tileTextureIndexData[curTileIndex].v[0]) == 4 || (int)(tileTextureIndexData[curTileIndex].v[0]) == 9) {
-            //playerCharacter_mut->position.pos -= curFrameMovement;
             std::cout << "Stepped into an empty tile." << std::endl;
         }
 
-        //std::cout << "Playertile coord Index.y := " << curPlayerTileCoordIndex.y << std::endl;
-        //std::cout << "Player room index.y := " << curRoomIndex.y << "camera room index.y := " << cameraCurRoomIndex.y << "playertile coord Index.y := " << curPlayerTileCoordIndex.y << std::endl;
-        //std::cout << "camera room index:= " << cameraCurRoomIndex.x << ", " << cameraCurRoomIndex.y << std::endl;
         if (!Vector2Equals(curRoomIndex, cameraCurRoomIndex)) {
 
             Vector2 curRoomIndexDifference = Vector2{ (curRoomIndex.x - cameraCurRoomIndex.x) * -1.0f, curRoomIndex.y - cameraCurRoomIndex.y };
-            //std::cout << "room index difference := " << curRoomIndexDifference.x << ", " << curRoomIndexDifference.y;
             Vector2 worldDistanceToOffsetCameraBy = curRoomIndexDifference * worldDistanceToOffsetBy;
-            //std::cout << " move camera by value := " << worldDistanceToOffsetCameraBy.x << ", " << worldDistanceToOffsetCameraBy.y << std::endl;
 
             camera->target = camera->target + worldDistanceToOffsetCameraBy;
         }
@@ -555,6 +584,8 @@ int main(void)
         //camera->target = playerCharacter_mut->position.pos;
         camera->zoom += ((float)GetMouseWheelMove() * 0.05f);
 
+
+#pragma region Draw To Screen.
 
         BeginDrawing();
 
@@ -609,6 +640,8 @@ int main(void)
         DrawFPS(40, 40);
 
         EndDrawing();
+
+#pragma endregion
 
         previousMovementDirection = curFrameMovementDirection;
     }
