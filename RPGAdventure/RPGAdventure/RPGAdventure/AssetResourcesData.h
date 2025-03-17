@@ -2,8 +2,8 @@
 
 #include <string>
 
-const std::string terrainTopFlatTileMap = "Assets/Tiny Swords (Update 010)/Terrain/Ground/Tilemap_Flat.png";
-//const std::string terrainTopFlatTileMap = "Assets/Tiny Swords (Update 010)/Terrain/Ground/Tilemap_Flat2.png";
+//const std::string terrainTopFlatTileMap = "Assets/Tiny Swords (Update 010)/Terrain/Ground/Tilemap_Flat.png";
+const std::string terrainTopFlatTileMap = "Assets/Tiny Swords (Update 010)/Terrain/Ground/Tilemap_Flat2.png";
 const unsigned int terrainTopFlatTileMap_numSpriteCellsX = 10;
 const unsigned int terrainTopFlatTileMap_numSpriteCellsY = 4;
 const unsigned int terrainTopFlatTileMap_paddingX = 0;
@@ -25,3 +25,5 @@ const unsigned int torchGoblin_CharacterSpriteSheet_numSpriteCellsX = 7;
 const unsigned int torchGoblin_CharacterSpriteSheet_numSpriteCellsY = 5;
 const unsigned int torchGoblin_CharacterSpriteSheet_paddingX = 50;
 const unsigned int torchGoblin_CharacterSpriteSheet_paddingY = 50;
+
+const std::string roomsTileMapDataFileLoc = "Assets/Maps/";

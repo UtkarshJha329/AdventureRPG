@@ -146,6 +146,7 @@
     <ClInclude Include="SpriteSheet.h" />
     <ClInclude Include="TextureResource.h" />
     <ClInclude Include="TileMap.h" />
+    <ClInclude Include="TileMapData.h" />
     <ClInclude Include="TorchGoblinAnimationGraphTransitionFunctions.h" />
     <ClInclude Include="Velocity.h" />
   </ItemGroup>

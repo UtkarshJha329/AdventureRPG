@@ -14,6 +14,7 @@
 #include "SpriteAnimation.h"
 #include "AnimationGraph.h"
 #include "TileMap.h"
+#include "TileMapData.h"
 
 #include "Room.h"
 
@@ -22,6 +23,7 @@
 
 #include <string>
 #include <vector>
+#include <fstream>
 
 const int screenWidth = 1280;
 const int screenHeight = 720;
@@ -106,6 +108,7 @@ int main(void)
 
     auto e_tileMapGround = world.entity("Ground Tiles");
     e_tileMapGround.add<TextureResource>();
+    e_tileMapGround.add<TileMapData>();
     e_tileMapGround.add<TileMap>();
     e_tileMapGround.add<Vector3>();
 
@@ -114,6 +117,8 @@ int main(void)
 
     const TileMap* tm = e_tileMapGround.get<TileMap>();
 
+    //auto e_roomTileMapData = world.entity("Tilemap Data");
+    //e_roomTileMapData.add<TileMapData>();
 
 #pragma region Systems
 
@@ -147,9 +152,44 @@ int main(void)
             }
         });
 
-    auto InitTileMapSystem = world.system<TextureResource, TileMap>()
+    auto InitTileMapRoomData = world.system<TileMapData>()
         .kind(flecs::OnStart)
-        .each([](flecs::iter& it, size_t, TextureResource& tr, TileMap& tm) {
+        .each([](flecs::iter& it, size_t, TileMapData& tmd) {
+
+            //tmd.tileMapData = std::vector<std::string>(totalTilesX * totalTilesY);
+
+            for (int y = 0; y < totalRoomsY; y++)
+            {
+                for (int x = 0; x < totalRoomsX; x++)
+                {
+                    std::string curRoomTileMapDataLoc = roomsTileMapDataFileLoc + "room" + std::to_string(y) + std::to_string(x) + ".map";
+
+                    std::ifstream file(curRoomTileMapDataLoc);
+
+                    if (!file.is_open()) {
+                        std::cerr << "Error opening file: " << curRoomTileMapDataLoc << std::endl;
+                        return 1;
+                    }
+
+                    std::string line;
+                    int lineNumber = 0;
+
+                    while (std::getline(file, line)) {
+
+                        tmd.tileMapData.push_back(line);
+                    }
+
+                    file.close();
+                }
+            }
+
+
+        });
+
+
+    auto InitTileMapSystem = world.system<TextureResource, TileMapData, TileMap>()
+        .kind(flecs::OnStart)
+        .each([](flecs::iter& it, size_t, TextureResource& tr, TileMapData& tmd, TileMap& tm) {
 
             //std::cout << "Init Tile Map Sprites." << std::endl;
             InitSpriteSheet(tm.tilePallet, tr.texSrc, tr.numSpriteCellsX, tr.numSpriteCellsY, tr.paddingX, tr.paddingY);
@@ -163,8 +203,24 @@ int main(void)
                 //tm.tiles[x].reserve(tm.sizeY);
                 for (int x = 0; x < totalTilesX; x++)
                 {
-                    tm.tileTextureIndexData[y * totalTilesX + x].v[0] = (float)(GetRandomValue(0, (int)(tm.tilePallet.numSpriteCellsX - 1)));
-                    tm.tileTextureIndexData[y * totalTilesX + x].v[1] = (float)(GetRandomValue(0, (int)(tm.tilePallet.numSpriteCellsY - 1)));
+                    //tm.tileTextureIndexData[y * totalTilesX + x].v[0] = (float)(GetRandomValue(0, (int)(tm.tilePallet.numSpriteCellsX - 1)));
+                    //tm.tileTextureIndexData[y * totalTilesX + x].v[1] = (float)(GetRandomValue(0, (int)(tm.tilePallet.numSpriteCellsY - 1)));
+
+                    int tileMapDataReadingX = x * 2;
+
+                    if (tmd.tileMapData[y][tileMapDataReadingX] == '#') {
+                        tm.tileTextureIndexData[y * totalTilesX + x].v[0] = 8;
+                        tm.tileTextureIndexData[y * totalTilesX + x].v[1] = 0;
+                    }
+                    else if (tmd.tileMapData[y][tileMapDataReadingX] == 'x') {
+                        tm.tileTextureIndexData[y * totalTilesX + x].v[0] = 1;
+                        tm.tileTextureIndexData[y * totalTilesX + x].v[1] = 2;
+                    }
+                    else if (tmd.tileMapData[y][tileMapDataReadingX] == 'o') {
+                        tm.tileTextureIndexData[y * totalTilesX + x].v[0] = 4;
+                        tm.tileTextureIndexData[y * totalTilesX + x].v[1] = 0;
+                    }
+
 
                     //std::cout << "tile[" << y << "][" << x << "] := " << tileTextureIndexData[y * worldSizeX + x].v[0] << ", " << tileTextureIndexData[y * worldSizeX + x].v[1] << std::endl;
                 }
@@ -412,8 +468,16 @@ int main(void)
 
         int nextTileIndex = nextPlayerTileCoordIndex.y * totalTilesX + nextPlayerTileCoordIndex.x;
 
+        //Stop player from moving 
         if ((int)(tm->tileTextureIndexData[nextTileIndex].v[0]) == 4 || (int)(tm->tileTextureIndexData[nextTileIndex].v[0]) == 9) {
             //std::cout << "Moving into an empty tile." << std::endl;
+            curFrameMovement = curFrameMovement * -1.0f;
+            curFrameVel = curFrameVel * -1.0f;
+        }
+
+        //Stop player from moving out of tile map boundaries.
+        if (nextPlayerTileCoordIndex.x >= totalTilesX || nextPlayerTileCoordIndex.y >= totalTilesY
+            || nextPlayerTileCoordIndex.x < 0|| nextPlayerTileCoordIndex.y < 0) {
             curFrameMovement = curFrameMovement * -1.0f;
             curFrameVel = curFrameVel * -1.0f;
         }
@@ -468,6 +532,8 @@ int main(void)
         Vector2 curFrameMovementInPixels = GetWorldToScreen2D(curFrameMovement, *camera);
         Vector2 curRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPos, curFrameMovementInPixels) * Vector2 { 1.0f, 1.0 };
         Vector2 cameraCurRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(camera->target, *camera), cameraScreenPos, curFrameMovementInPixels);
+
+        //std::cout << cameraCurRoomIndex.x << ", " << cameraCurRoomIndex.y << std::endl;
 
         if (!Vector2Equals(curRoomIndex, cameraCurRoomIndex)) {
 
