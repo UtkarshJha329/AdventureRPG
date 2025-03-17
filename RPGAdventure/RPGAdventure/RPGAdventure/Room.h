@@ -146,7 +146,17 @@ Vector2 CurrentTileCoordIndex(Vector2 pointScreenPos, Vector2 cameraScreenPos, V
 	float indexCoordX = (pointScreenPos.x - modX) / tileScaleX;
 	float indexCoordY = (pointScreenPos.y - modY) / tileScaleY;
 
-	return Vector2{ indexCoordX, indexCoordY };
+	if (std::fmod(indexCoordX, 1.0) != 0) {
+		indexCoordX = round(indexCoordX);
+	}
+
+	if (std::fmod(indexCoordY, 1.0) != 0) {
+		indexCoordY = round(indexCoordY);
+		//indexCoordY = floor(indexCoordY) + 1;
+	}
+
+
+	return Vector2{ indexCoordX, indexCoordY * -1.0f };
 }
 
 Vector2 CurrentRoomIndex(Vector2 pointScreenPos, Vector2 cameraScreenPos, Vector2 movementInPixels, Vector2 offsetByTiles) {
@@ -155,7 +165,6 @@ Vector2 CurrentRoomIndex(Vector2 pointScreenPos, Vector2 cameraScreenPos, Vector
 	float totalTilesY = 100;
 
 	Vector2 tileIndexCoords = CurrentTileCoordIndex(pointScreenPos, cameraScreenPos, movementInPixels);
-
 	//std::cout << "TILE INDEX COORDS := " << tileIndexCoords.x << ", " << tileIndexCoords.y << std::endl;
 
 	float modX = std::fmod(tileIndexCoords.x + offsetByTiles.x, numTilesX);
@@ -164,7 +173,8 @@ Vector2 CurrentRoomIndex(Vector2 pointScreenPos, Vector2 cameraScreenPos, Vector
 	float roomIndexCoordsX = (tileIndexCoords.x - modX) / numTilesX;
 	float roomIndexCoordsY = (tileIndexCoords.y - modY) / numTilesY;
 
-	return Vector2{ (float)roomIndexCoordsX, (float)roomIndexCoordsY * -1.0f };
+	//return Vector2{ (float)roomIndexCoordsX, (float)roomIndexCoordsY * -1.0f };
+	return Vector2{ (float)roomIndexCoordsX, (float)roomIndexCoordsY};
 }
 
 bool PointLiesInsideRoom(Vector2 roomIndex, Vector2 point, Vector2 cameraScreenPos, Vector2 movementInPixels, Vector2 offsetByTiles) {

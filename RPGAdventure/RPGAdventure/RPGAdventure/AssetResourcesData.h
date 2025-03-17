@@ -2,7 +2,8 @@
 
 #include <string>
 
-const std::string terrainTopFlatTileMap = "Assets/Tiny Swords (Update 010)/Terrain/Ground/Tilemap_Flat.png";
+//const std::string terrainTopFlatTileMap = "Assets/Tiny Swords (Update 010)/Terrain/Ground/Tilemap_Flat.png";
+const std::string terrainTopFlatTileMap = "Assets/Tiny Swords (Update 010)/Terrain/Ground/Tilemap_Flat2.png";
 const unsigned int terrainTopFlatTileMap_numSpriteCellsX = 10;
 const unsigned int terrainTopFlatTileMap_numSpriteCellsY = 4;
 const unsigned int terrainTopFlatTileMap_paddingX = 0;
