@@ -9,6 +9,10 @@ public:
     Position position = { 0 };
     Velocity velocity = { 0 };
     Vector2 facingDirection = { 0 };
+
+    Rectangle attackSideOverlapRect;
+    Rectangle attackUpOverlapRect;
+    Rectangle attackDownOverlapRect;
 };
 
 class CharacterStates {

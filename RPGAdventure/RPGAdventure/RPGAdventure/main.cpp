@@ -108,6 +108,7 @@ int main(void)
     SpawnRooms(*mut_tm);
     FillTileMapDataFromFile(*mut_tmd);
     SpawnGoblins(world, *mut_tmd, *mut_tm, *measurementCamera);
+
 #pragma region Systems
 
     auto InitSpriteSheetSystem = world.system<SpriteSheet, TextureResource>()
@@ -117,14 +118,21 @@ int main(void)
             InitSpriteSheet(ss, tr.texSrc, tr.numSpriteCellsX, tr.numSpriteCellsY, tr.paddingX, tr.paddingY);
         });
 
-    auto InitBoundingBoxSystem = world.system<SpriteSheet, BoundingBox2D>()
+    auto InitBoundingBoxSystem = world.system<SpriteSheet, BoundingBox2D, Character>()
         .kind(flecs::OnStart)
-        .each([](flecs::iter& it, size_t, SpriteSheet& ss, BoundingBox2D& bb) {
+        .each([](flecs::iter& it, size_t, SpriteSheet& ss, BoundingBox2D& bb, Character& character) {
 
             float width = ss.cell.width * 0.5f;
             float height = ss.cell.height * 0.5f;
             bb.boundingBoxForSprite = Rectangle{ -(width * 0.5f), -(height * 0.5f), width, height };
             bb.reducedBoundingBoxForSprite = Rectangle{ -(width * 0.5f * 0.5f), -(height * 0.5f * 0.5f), width * 0.5f, height * 0.5f };
+
+            character.attackSideOverlapRect = Rectangle{ bb.reducedBoundingBoxForSprite.x + bb.reducedBoundingBoxForSprite.width, bb.reducedBoundingBoxForSprite.y - bb.reducedBoundingBoxForSprite.height
+                                                        ,bb.reducedBoundingBoxForSprite.width * 1.5f, bb.reducedBoundingBoxForSprite.height * 3.0f };
+            character.attackUpOverlapRect = Rectangle{ bb.reducedBoundingBoxForSprite.x - bb.reducedBoundingBoxForSprite.width, bb.reducedBoundingBoxForSprite.y - bb.reducedBoundingBoxForSprite.height
+                                                      ,bb.reducedBoundingBoxForSprite.width * 3.0f, bb.reducedBoundingBoxForSprite.height * 1.0f };
+            character.attackDownOverlapRect = Rectangle{ bb.reducedBoundingBoxForSprite.x - bb.reducedBoundingBoxForSprite.width, bb.reducedBoundingBoxForSprite.y + bb.reducedBoundingBoxForSprite.height
+                                                        ,bb.reducedBoundingBoxForSprite.width * 3.0f, bb.reducedBoundingBoxForSprite.height * 1.0f };
         });
 
     auto InitSpriteSheetAnimationSystem = world.system<SpriteSheet, SpriteAnimation>()
@@ -341,8 +349,12 @@ int main(void)
     // VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV GAME LOOP VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
     while (!WindowShouldClose())
     {
-
+        bool doDebugPrint = false;
         //std::cout << totalTilesX << ", " << totalTilesY << std::endl;
+
+        if (IsKeyPressed(KEY_ONE)) {
+            doDebugPrint = true;
+        }
 
 #pragma region Get Component References.
         //Variables.
@@ -421,6 +433,8 @@ int main(void)
 
 #pragma region Player Attaccking Input.
         //Handle player attacking input.
+        bool calculateAttack = false;
+
         if (IsKeyPressed(KEY_SPACE) && !IsCharacterAttacking(*playerCharacterStates_mut)) {
             //std::cout << "Attacking!" << std::endl;
 
@@ -439,6 +453,7 @@ int main(void)
 
             attackCloseTime = GetTime() + attackingTime;
             attackClosed = false;
+            calculateAttack = true;
         }
 #pragma endregion
 
@@ -468,9 +483,15 @@ int main(void)
             BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
             Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
 
-            Rectangle playerWorldBB = Rectangle{ nextPlayerPosX.x + playerBB2D->reducedBoundingBoxForSprite.width, nextPlayerPosY.y + playerBB2D->reducedBoundingBoxForSprite.height, playerBB2D->reducedBoundingBoxForSprite.width, playerBB2D->reducedBoundingBoxForSprite.height };
-            Rectangle curGoblinWorldBB = Rectangle{ curGoblinCharacter->position.pos.x + curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinCharacter->position.pos.y + curGoblinBB2D->reducedBoundingBoxForSprite.height, curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinBB2D->reducedBoundingBoxForSprite.height };
+            Rectangle playerWorldBB = Rectangle{ nextPlayerPosX.x + playerBB2D->reducedBoundingBoxForSprite.width, nextPlayerPosY.y + playerBB2D->reducedBoundingBoxForSprite.height
+                                                , playerBB2D->reducedBoundingBoxForSprite.width, playerBB2D->reducedBoundingBoxForSprite.height };
 
+            Rectangle curGoblinWorldBB = Rectangle{ curGoblinCharacter->position.pos.x + curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinCharacter->position.pos.y + curGoblinBB2D->reducedBoundingBoxForSprite.height
+                                                    , curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinBB2D->reducedBoundingBoxForSprite.height };
+
+            if (doDebugPrint) {
+                std::cout << "1 := " << curGoblinWorldBB.x << ", " << curGoblinWorldBB.y << ", " << curGoblinWorldBB.width << ", " << curGoblinWorldBB.height << std::endl;
+            }
 
             if (CheckCollisionRecs(playerWorldBB, curGoblinWorldBB)) {
                 //std::cout << "Player and " << e_CurrentGoblin.name() << " collided!!!!" << std::endl;
@@ -520,6 +541,70 @@ int main(void)
 
         playerCharacterStates_mut->running = Vector2Length(playerCharacter_mut->velocity.vel) != 0.0f;
         playerCharacterStates_mut->idle = Vector2Length(playerCharacter_mut->velocity.vel) == 0.0f;
+
+#pragma endregion
+
+#pragma region Handle Player Attack
+
+        if (calculateAttack) {
+
+            for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
+
+                auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
+                BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
+                Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
+
+                Rectangle curGoblinWorldBB = Rectangle{ curGoblinCharacter->position.pos.x - curGoblinBB2D->reducedBoundingBoxForSprite.width * 0.5f, curGoblinCharacter->position.pos.y - curGoblinBB2D->reducedBoundingBoxForSprite.height * 0.5f
+                                                        , curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinBB2D->reducedBoundingBoxForSprite.height };
+
+                if (doDebugPrint) {
+                    std::cout << "2 := " << curGoblinWorldBB.x << ", " << curGoblinWorldBB.y << ", " << curGoblinWorldBB.width << ", " << curGoblinWorldBB.height << std::endl;
+                }
+
+                Rectangle playerWorldAttackBB = Rectangle{ playerCharacter_mut->position.pos.x , playerCharacter_mut->position.pos.y , 0.0f, 0.0f };
+
+                if (playerCharacterStates_mut->attackingSide) {
+                    //std::cout << "Attacked side" << std::endl;
+                    if (playerCharacter_mut->facingDirection.x < 0.0f) {
+                        playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x * -4.0f;
+                    }
+                    else {
+                        playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x;
+                    }
+                    playerWorldAttackBB.y += playerCharacter_mut->attackSideOverlapRect.y;
+                    playerWorldAttackBB.width = playerCharacter_mut->attackSideOverlapRect.width;
+                    playerWorldAttackBB.height = playerCharacter_mut->attackSideOverlapRect.height;
+                }
+                else if (playerCharacterStates_mut->attackingDown) {
+                    //std::cout << "Attacked down" << std::endl;
+                    playerWorldAttackBB.x += playerCharacter_mut->attackDownOverlapRect.x;
+                    playerWorldAttackBB.y += playerCharacter_mut->attackDownOverlapRect.y;
+                    playerWorldAttackBB.width = playerCharacter_mut->attackDownOverlapRect.width;
+                    playerWorldAttackBB.height = playerCharacter_mut->attackDownOverlapRect.height;
+
+                }
+                else if (playerCharacterStates_mut->attackingUp) {
+                    //std::cout << "Attacked up" << std::endl;
+                    playerWorldAttackBB.x += playerCharacter_mut->attackUpOverlapRect.x;
+                    playerWorldAttackBB.y += playerCharacter_mut->attackUpOverlapRect.y;
+                    playerWorldAttackBB.width = playerCharacter_mut->attackUpOverlapRect.width;
+                    playerWorldAttackBB.height = playerCharacter_mut->attackUpOverlapRect.height;
+
+                }
+
+                if (CheckCollisionRecs(playerWorldAttackBB, curGoblinWorldBB)) {
+                    //std::cout << "Player and " << e_CurrentGoblin.name() << " collided!!!!" << std::endl;
+                    Vector2 knockBackDir = curGoblinCharacter->position.pos - Vector2{ nextPlayerPosX.x, nextPlayerPosY.y };
+                    knockBackDir = Vector2Normalize(knockBackDir);
+
+                    float knockBackStrength = 50.0f;
+
+                    //curFrameMovement = knockBackDir * knockBackStrength;
+                    //std::cout << "Hit " << e_CurrentGoblin.name() << std::endl;
+                }
+            }
+        }
+
 
 #pragma endregion
 
@@ -617,6 +702,64 @@ int main(void)
         float posY = playerCharacter_mut->position.pos.y + playerBB2D->reducedBoundingBoxForSprite.y;
 
         DrawRectangleLines(posX, posY, width, height, RED);
+
+        //posY -= height;
+        //height *= 3.0f;
+        //posX += width;
+        //width *= 1.5f;
+
+        //DrawRectangleLines(posX, posY, width, height, RED);
+
+        Rectangle playerWorldAttackBB = Rectangle{ playerCharacter_mut->position.pos.x , playerCharacter_mut->position.pos.y , 0.0f, 0.0f };
+
+        if (playerCharacterStates_mut->attackingSide) {
+            //std::cout << "Attacked side" << std::endl;
+            //std::cout << playerCharacter_mut->facingDirection.x << std::endl;
+            if (playerCharacter_mut->facingDirection.x < 0.0f) {
+                playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x * -4.0f;
+            }
+            else {
+                playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x;
+            }
+            playerWorldAttackBB.y += playerCharacter_mut->attackSideOverlapRect.y;
+            playerWorldAttackBB.width = playerCharacter_mut->attackSideOverlapRect.width;
+            playerWorldAttackBB.height = playerCharacter_mut->attackSideOverlapRect.height;
+        }
+        else if (playerCharacterStates_mut->attackingDown) {
+            //std::cout << "Attacked down" << std::endl;
+            playerWorldAttackBB.x += playerCharacter_mut->attackDownOverlapRect.x;
+            playerWorldAttackBB.y += playerCharacter_mut->attackDownOverlapRect.y;
+            playerWorldAttackBB.width = playerCharacter_mut->attackDownOverlapRect.width;
+            playerWorldAttackBB.height = playerCharacter_mut->attackDownOverlapRect.height;
+
+        }
+        else if (playerCharacterStates_mut->attackingUp) {
+            //std::cout << "Attacked up" << std::endl;
+            playerWorldAttackBB.x += playerCharacter_mut->attackUpOverlapRect.x;
+            playerWorldAttackBB.y += playerCharacter_mut->attackUpOverlapRect.y;
+            playerWorldAttackBB.width = playerCharacter_mut->attackUpOverlapRect.width;
+            playerWorldAttackBB.height = playerCharacter_mut->attackUpOverlapRect.height;
+
+        }
+
+        DrawRectangleLines(playerWorldAttackBB.x, playerWorldAttackBB.y, playerWorldAttackBB.width, playerWorldAttackBB.height, RED);
+
+
+        for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
+
+            auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
+            BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
+            Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
+
+            Rectangle curGoblinWorldBB = Rectangle{ curGoblinCharacter->position.pos.x - curGoblinBB2D->reducedBoundingBoxForSprite.width * 0.5f, curGoblinCharacter->position.pos.y - curGoblinBB2D->reducedBoundingBoxForSprite.height * 0.5f
+                                                    , curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinBB2D->reducedBoundingBoxForSprite.height };
+            if (doDebugPrint) {
+                std::cout << "3 := " << curGoblinWorldBB.x << ", " << curGoblinWorldBB.y << ", " << curGoblinWorldBB.width << ", " << curGoblinWorldBB.height << std::endl;
+            }
+
+            DrawRectangleLines(curGoblinWorldBB.x, curGoblinWorldBB.y, curGoblinWorldBB.width, curGoblinWorldBB.height, RED);
+
+        }
 
         EndMode2D();
 
