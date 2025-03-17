@@ -64,5 +64,10 @@ bool IsTileFilledWithCollider(TileMap& tm, Vector2 tileToCheckIindex, int numTil
         }
     }
 
+    if (tileToCheckIindex.x >= totalTilesX || tileToCheckIindex.y >= totalTilesY
+        || tileToCheckIindex.x < 0 || tileToCheckIindex.y < 0) {
+        return true;
+    }
+
     return false;
 }

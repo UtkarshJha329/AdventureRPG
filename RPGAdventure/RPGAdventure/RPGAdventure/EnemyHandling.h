@@ -138,11 +138,10 @@ void MakeGoblinsMoveIt(flecs::world& world, TileMap& tm, Vector2 roomIndex, Vect
         else {
             //std::cout << "goblin stopped attacking." << GetTime() << std::endl;
             goblinCharacterStates_mut->attackingSide = false;
+            //goblinCharacterStates_mut->running = true;
+            //goblinCharacterStates_mut->idle = false;
             goblinCharacterStates_mut->running = false;
             goblinCharacterStates_mut->idle = true;
         }
-
     }
-
-
 }

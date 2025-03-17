@@ -407,7 +407,6 @@ int main(void)
         }
 #pragma endregion
 
-
 #pragma region Handle Player Movement And Animations.
 
         Vector2 curFrameVel = curFrameMovementDirection * Vector2{ 1.0f, -1.0f } * speed;
@@ -419,28 +418,30 @@ int main(void)
             curFrameVel = Vector2Zeros;
         }
 
-        Vector2 nextPlayerPos = playerCharacter_mut->position.pos + curFrameMovement * 4.0f;
+        Vector2 nextPlayerPosX = playerCharacter_mut->position.pos + Vector2{ curFrameMovement.x, 0.0f } *4.0f;
+        Vector2 nextPlayerPosY = playerCharacter_mut->position.pos + Vector2{ 0.0f, curFrameMovement.y } *4.0f;
 
         Vector2 cameraScreenPosNextPlayerPos = GetWorldToScreen2D(camera->target, *camera);
         Vector2 curFrameMovementInPixelsNextPlayerPos = GetWorldToScreen2D(curFrameMovement, *camera);
-        Vector2 curRoomIndexNextPlayerPos = CurrentRoomIndex(GetWorldToScreen2D(nextPlayerPos, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
+        Vector2 curRoomIndexNextPlayerPosX = CurrentRoomIndex(GetWorldToScreen2D(nextPlayerPosX, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
+        Vector2 curRoomIndexNextPlayerPosY = CurrentRoomIndex(GetWorldToScreen2D(nextPlayerPosY, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
 
-        Vector2 nextPlayerTileCoordIndex = CurrentTileCoordIndex(GetWorldToScreen2D(nextPlayerPos, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos);
+        Vector2 nextPlayerTileCoordIndexX = CurrentTileCoordIndex(GetWorldToScreen2D(nextPlayerPosX, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos);
+        Vector2 nextPlayerTileCoordIndexY = CurrentTileCoordIndex(GetWorldToScreen2D(nextPlayerPosY, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos);
 
-        int nextTileIndex = nextPlayerTileCoordIndex.y * totalTilesX + nextPlayerTileCoordIndex.x;
+        int nextTileIndexX = nextPlayerTileCoordIndexX.y * totalTilesX + nextPlayerTileCoordIndexX.x;
+        int nextTileIndexY = nextPlayerTileCoordIndexY.y * totalTilesX + nextPlayerTileCoordIndexY.x;
 
         //Stop player from moving 
-        if (IsTileFilledWithCollider(*mut_tm, nextPlayerTileCoordIndex, totalTilesX)) {
+        if (IsTileFilledWithCollider(*mut_tm, nextPlayerTileCoordIndexX, totalTilesX)) {
             //std::cout << "Moving into an empty tile." << std::endl;
-            curFrameMovement = curFrameMovement * -1.0f;
-            curFrameVel = curFrameVel * -1.0f;
+            curFrameMovement = Vector2{ curFrameMovement.x, -curFrameMovement.y } * -1.0f;
+            curFrameVel = Vector2{ curFrameVel.x, -curFrameVel.y } * -1.0f;
         }
-
-        //Stop player from moving out of tile map boundaries.
-        if (nextPlayerTileCoordIndex.x >= totalTilesX || nextPlayerTileCoordIndex.y >= totalTilesY
-            || nextPlayerTileCoordIndex.x < 0|| nextPlayerTileCoordIndex.y < 0) {
-            curFrameMovement = curFrameMovement * -1.0f;
-            curFrameVel = curFrameVel * -1.0f;
+        if (IsTileFilledWithCollider(*mut_tm, nextPlayerTileCoordIndexY, totalTilesX)) {
+            //std::cout << "Moving into an empty tile." << std::endl;
+            curFrameMovement = Vector2{ -curFrameMovement.x, curFrameMovement.y } * -1.0f;
+            curFrameVel = Vector2{ -curFrameVel.x, curFrameVel.y } * -1.0f;
         }
 
         playerCharacter_mut->position.pos += curFrameMovement;
@@ -452,6 +453,7 @@ int main(void)
 
 #pragma region Goblin Stuff
 
+        Vector2 curRoomIndexNextPlayerPos = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
         MakeGoblinsMoveIt(world, *mut_tm, curRoomIndexNextPlayerPos, playerCharacter_mut->position.pos, Goblin::goblinSpeed, deltaTime, *camera);
 
 #pragma endregion
