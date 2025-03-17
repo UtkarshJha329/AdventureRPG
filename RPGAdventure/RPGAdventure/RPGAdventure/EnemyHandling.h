@@ -185,3 +185,46 @@ void MakeGoblinsMoveIt(flecs::world& world, TileMap& tm, Vector2 roomIndex, Vect
         }
     }
 }
+
+void ApplyKnockBackToGoblin(flecs::world& world, TileMap& tm, Vector2 roomIndex, int goblinIndex, Camera2D& camera) {
+
+    Goblin* goblin_mut = tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[goblinIndex].get_mut<Goblin>();
+    Character* goblinCharacter_mut = tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[goblinIndex].get_mut<Character>();
+    CharacterStates* goblinCharacterStates_mut = tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[goblinIndex].get_mut<CharacterStates>();
+
+    Vector2 curFrameMovement = goblinCharacter_mut->knockBack;
+    goblinCharacter_mut->knockBack = Vector2Zeros;
+    Vector2 goblinNextPos = goblinCharacter_mut->position.pos + curFrameMovement * 4.0f;
+
+    Vector2 cameraScreenPos = GetWorldToScreen2D(camera.target, camera);
+    Vector2 curFrameMovementInPixels = GetWorldToScreen2D(curFrameMovement, camera);
+    Vector2 curRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(goblinNextPos, camera), cameraScreenPos, curFrameMovementInPixels);
+
+    Vector2 nextGoblinTileCoordIndex = CurrentTileCoordIndex(GetWorldToScreen2D(goblinNextPos, camera), cameraScreenPos, curFrameMovementInPixels);
+
+    int nextTileIndex = nextGoblinTileCoordIndex.y * totalTilesX + nextGoblinTileCoordIndex.x;
+
+    //Stop player from moving 
+    if (IsTileFilledWithCollider(tm, nextGoblinTileCoordIndex, totalTilesX, true)) {
+        //std::cout << "Moving into an empty tile." << std::endl;
+        curFrameMovement = curFrameMovement * -1.0f;
+
+        goblinNextPos = goblinCharacter_mut->position.pos + curFrameMovement * 4.0f;
+        goblin_mut->movingDirection *= -1.0f;
+    }
+
+    goblinCharacter_mut->facingDirection.x = curFrameMovement.x == 0.0f ? 1.0f : curFrameMovement.x / abs(curFrameMovement.x);
+    goblinCharacter_mut->facingDirection.y = curFrameMovement.y == 0.0f ? 1.0f : curFrameMovement.y / abs(curFrameMovement.y);
+    if (goblinCharacter_mut->facingDirection.y < 0.0) {
+        goblinCharacter_mut->facingDirection.x = -1.0f;
+    }
+
+    goblinCharacter_mut->velocity.vel = Vector2Zeros;
+    goblinCharacter_mut->position.pos = goblinNextPos;
+
+    goblinCharacterStates_mut->running = false;
+    goblinCharacterStates_mut->idle = true;
+    goblinCharacterStates_mut->attackingSide = false;
+
+}
+

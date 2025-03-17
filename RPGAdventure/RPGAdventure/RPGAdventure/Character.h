@@ -13,6 +13,8 @@ public:
     Rectangle attackSideOverlapRect;
     Rectangle attackUpOverlapRect;
     Rectangle attackDownOverlapRect;
+
+    Vector2 knockBack = Vector2Zeros;
 };
 
 class CharacterStates {

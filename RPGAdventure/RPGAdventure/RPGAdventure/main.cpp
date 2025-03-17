@@ -597,8 +597,11 @@ int main(void)
                     Vector2 knockBackDir = curGoblinCharacter->position.pos - Vector2{ nextPlayerPosX.x, nextPlayerPosY.y };
                     knockBackDir = Vector2Normalize(knockBackDir);
 
-                    float knockBackStrength = 50.0f;
+                    float knockBackStrength = 10.0f;
 
+                    curGoblinCharacter->knockBack = knockBackDir * knockBackStrength;
+
+                    ApplyKnockBackToGoblin(world, *mut_tm, curRoomIndexNextPlayerPos, i, *camera);
                     //curFrameMovement = knockBackDir * knockBackStrength;
                     //std::cout << "Hit " << e_CurrentGoblin.name() << std::endl;
                 }
