@@ -162,17 +162,19 @@ int main(void)
             {
                 for (int x = 0; x < totalRoomsX; x++)
                 {
-                    std::string curRoomTileMapDataLoc = roomsTileMapDataFileLoc + "room" + std::to_string(y) + std::to_string(x) + ".map";
+                    //std::string curRoomTileMapDataLoc = roomsTileMapDataFileLoc + "room" + std::to_string(y) + std::to_string(x) + ".map";
+                    std::string tileMapDataLoc = roomsTileMapDataFileLoc + "roomMapData.map";
 
-                    std::ifstream file(curRoomTileMapDataLoc);
+                    //std::ifstream file(curRoomTileMapDataLoc);
+                    std::ifstream file(tileMapDataLoc);
 
                     if (!file.is_open()) {
-                        std::cerr << "Error opening file: " << curRoomTileMapDataLoc << std::endl;
+                        //std::cerr << "Error opening file: " << curRoomTileMapDataLoc << std::endl;
+                        std::cerr << "Error opening file: " << tileMapDataLoc << std::endl;
                         return 1;
                     }
 
                     std::string line;
-                    int lineNumber = 0;
 
                     while (std::getline(file, line)) {
 
@@ -196,9 +198,10 @@ int main(void)
 
             //std::cout << tm.tilePallet.cell.height << std::endl;
 
-            tm.tileTextureIndexData = std::vector<float2>(totalTilesX * totalTilesY, { 0.0f, 0.0f });
+            int totalY = 70;
+            tm.tileTextureIndexData = std::vector<float2>(totalTilesX * totalY, { 0.0f, 0.0f });
 
-            for (int y = 0; y < totalTilesY; y++)
+            for (int y = 0; y < totalY; y++)
             {
                 //tm.tiles[x].reserve(tm.sizeY);
                 for (int x = 0; x < totalTilesX; x++)
@@ -207,20 +210,20 @@ int main(void)
                     //tm.tileTextureIndexData[y * totalTilesX + x].v[1] = (float)(GetRandomValue(0, (int)(tm.tilePallet.numSpriteCellsY - 1)));
 
                     int tileMapDataReadingX = x * 2;
+                    int tileMapDataReadingY = y;
 
-                    if (tmd.tileMapData[y][tileMapDataReadingX] == '#') {
+                    if (tmd.tileMapData[tileMapDataReadingY][tileMapDataReadingX] == '#') {
                         tm.tileTextureIndexData[y * totalTilesX + x].v[0] = 8;
                         tm.tileTextureIndexData[y * totalTilesX + x].v[1] = 0;
                     }
-                    else if (tmd.tileMapData[y][tileMapDataReadingX] == 'x') {
+                    else if (tmd.tileMapData[tileMapDataReadingY][tileMapDataReadingX] == 'x') {
                         tm.tileTextureIndexData[y * totalTilesX + x].v[0] = 1;
                         tm.tileTextureIndexData[y * totalTilesX + x].v[1] = 2;
                     }
-                    else if (tmd.tileMapData[y][tileMapDataReadingX] == 'o') {
+                    else if (tmd.tileMapData[tileMapDataReadingY][tileMapDataReadingX] == 'o') {
                         tm.tileTextureIndexData[y * totalTilesX + x].v[0] = 4;
                         tm.tileTextureIndexData[y * totalTilesX + x].v[1] = 0;
                     }
-
 
                     //std::cout << "tile[" << y << "][" << x << "] := " << tileTextureIndexData[y * worldSizeX + x].v[0] << ", " << tileTextureIndexData[y * worldSizeX + x].v[1] << std::endl;
                 }
@@ -525,7 +528,8 @@ int main(void)
 
 #pragma region Camera Room Movement.
 
-        Vector2 offsetByTiles = Vector2{ numTilesX * tileScaleX, numTilesY * tileScaleY } * -0.5f;
+        int numTilesYRounded = 7;
+        Vector2 offsetByTiles = Vector2{ numTilesX * tileScaleX, (numTilesYRounded * round(tileScaleY) ) + 30.0f } * -0.5f;
         Vector2 worldDistanceToOffsetBy = GetScreenToWorld2D(offsetByTiles, *measurementCamera);
 
         Vector2 cameraScreenPos = GetWorldToScreen2D(camera->target, *camera);
