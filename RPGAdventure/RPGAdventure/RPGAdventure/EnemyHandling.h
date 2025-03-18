@@ -8,6 +8,12 @@
 
 #include "TorchGoblinAnimationGraphTransitionFunctions.h"
 
+class Castle{
+
+public:
+    Vector2 roomIndex;
+};
+
 bool IsMovementDirectionArrow(char c) {
     return c == '^' || c == 'V' || c == '>' || c == '<';
 }
@@ -51,12 +57,13 @@ void SpawnGoblins(flecs::world& world, TileMapData& tmd, TileMap& tm, Camera2D& 
             int tileMapDataReadingX = x * 2;
             int tileMapDataReadingY = y;
 
+            int roomIndexX = x / numTilesX;
+            int roomIndexY = y / tilesY;
+
             if (tmd.enemyTileMapData[tileMapDataReadingY][tileMapDataReadingX] == 'T') {
 
                 //std::cout << "Added torch goblin." << std::endl;
 
-                int roomIndexX = x / numTilesX;
-                int roomIndexY = y / tilesY;
 
                 std::string goblinName = "Torch Goblin (" + std::to_string(torchGoblin) + ")";
                 auto e_torchGoblinEntity = world.entity(goblinName.c_str());
@@ -86,13 +93,33 @@ void SpawnGoblins(flecs::world& world, TileMapData& tmd, TileMap& tm, Camera2D& 
 
                 int numTilesYRounded = 7;
                 Vector2 tileRoomIndex = Vector2{ x / numTilesX, y / (float)numTilesYRounded };
+
+                float correction1 = 1.0f;
+                if (tileRoomIndex.y >= 1.0f) {
+                    correction1 = -1.0f;
+                }
+
+                float correction2 = 1.0f;
+                int yRelRoom = y - (abs((int)((tileRoomIndex.y)))) * 7;
+                if (yRelRoom >= 4) {
+                    //std::cout << "Over : " << y << std::endl;
+                    correction2 = -1.0f;
+                }
+                //else {
+                //    //std::cout << "Under : " << y << ", " << abs((int)((tileRoomIndex.y))) * 7 << std::endl;
+                //}
+
                 //Vector2 offsetByTiles = Vector2{ ((tileRoomIndex.x * numTilesX) + x) * tileScaleX, ((tileRoomIndex.y * numTilesYRounded) + y) * tileScaleY } + Vector2{ tileScaleX * 0.5f, tileScaleY * 0.25f };
-                Vector2 offsetByTiles = Vector2{ (x) * tileScaleX, (y) * tileScaleY } + Vector2{ tileScaleX * 0.5f, tileScaleY * 0.25f };
+                Vector2 offsetByTiles = Vector2{ (x) * tileScaleX, (y) * tileScaleY } + Vector2{ tileScaleX * 0.5f, tileScaleY * 0.25f * correction2 };
                 Vector2 worldDistanceToOffsetBy = GetScreenToWorld2D(offsetByTiles, camera);
+                worldDistanceToOffsetBy.y *= correction1;
 
                 //std::cout << worldDistanceToOffsetBy.x << ", " << worldDistanceToOffsetBy.y << std::endl;
+                //std::cout << worldDistanceToOffsetBy.y << std::endl;
+                //worldDistanceToOffsetBy.y *= -1.0f;
 
-                goblin->position.pos = Vector2{ worldDistanceToOffsetBy.x, worldDistanceToOffsetBy.y };
+                //goblin->position.pos = Vector2{ worldDistanceToOffsetBy.x, worldDistanceToOffsetBy.y + worldFullLengthOneRoom.y * tileRoomIndex.y };
+                goblin->position.pos = Vector2{ worldDistanceToOffsetBy.x, worldDistanceToOffsetBy.y};
                 goblin->facingDirection = Vector2{ 1.0f, 1.0f };
 
                 Goblin* gob_mut = e_torchGoblinEntity.get_mut<Goblin>();
@@ -114,6 +141,48 @@ void SpawnGoblins(flecs::world& world, TileMapData& tmd, TileMap& tm, Camera2D& 
 
                 tm.roomsData[roomIndexY][roomIndexX].torchGoblinEntitiesInThisRoom.push_back(e_torchGoblinEntity);
                 torchGoblin++;
+            }
+            else if (tmd.enemyTileMapData[tileMapDataReadingY][tileMapDataReadingX] == 'C') {
+
+                std::string castleName = "Castle Of Peach";
+                auto e_Castle = world.entity(castleName.c_str());
+                e_Castle.add<SpriteSheet>();
+                e_Castle.add<BoundingBox2D>();
+                e_Castle.add<TextureResource>();
+                e_Castle.add<Vector2>();
+                e_Castle.add<Castle>();
+
+                e_Castle.set<TextureResource>({ castle_SpriteSheetLocation, castle_SpriteSheet_numSpriteCellsX, castle_SpriteSheet_numSpriteCellsY, castle_SpriteSheet_paddingX, castle_SpriteSheet_paddingY });
+
+                int numTilesYRounded = 7;
+                Vector2 tileRoomIndex = Vector2{ x / numTilesX, y / (float)numTilesYRounded };
+
+                float correction1 = 1.0f;
+                if (tileRoomIndex.y >= 1.0f) {
+                    correction1 = -1.0f;
+                }
+
+                float correction2 = 1.0f;
+                int yRelRoom = y - (abs((int)((tileRoomIndex.y)))) * 7;
+                if (yRelRoom >= 4) {
+                    //std::cout << "Over : " << y << std::endl;
+                    correction2 = 1.0f;
+                }
+                else {
+                    correction2 = 1.0f;
+                }
+
+                Vector2 offsetByTiles = Vector2{ (x)*tileScaleX, (y)*tileScaleY } + Vector2{ tileScaleX * 0.5f, tileScaleY * 0.25f * correction2 };
+                Vector2 worldDistanceToOffsetBy = GetScreenToWorld2D(offsetByTiles, camera);
+                worldDistanceToOffsetBy.y *= correction1;
+
+                e_Castle.set<Vector2>({ worldDistanceToOffsetBy.x, worldDistanceToOffsetBy.y });
+                Castle* curCastle = e_Castle.get_mut<Castle>();
+                curCastle->roomIndex = Vector2{ (float)roomIndexX, (float)roomIndexY };
+                //Vector2* castlePos = e_Castle.get_mut<Vector2>();
+
+                //castlePos = new Vector2{ worldDistanceToOffsetBy.x, worldDistanceToOffsetBy.y };
+
             }
         }
     }
@@ -200,6 +269,7 @@ void MakeGoblinsMoveIt(flecs::world& world, TileMap& tm, Vector2 roomIndex, Vect
                 //std::cout << "goblin attacking." << GetTime() << std::endl;
                 //std::cout << "goblin attacking." << GetTime() << std::endl;
                 //std::cout << tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[i].name() << "IS ATTACKING!!!!" << std::endl;
+
                 goblinCharacterStates_mut->attackingSide = true;
                 goblinCharacterStates_mut->running = false;
                 goblinCharacterStates_mut->idle = false;

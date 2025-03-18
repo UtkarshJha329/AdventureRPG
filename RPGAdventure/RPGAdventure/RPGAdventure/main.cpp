@@ -39,6 +39,13 @@ float timeToMoveAfterEnemyTouch = 0.0f;
 float speed = 1000.0f;
 
 bool playerIsDead = false;
+bool won = false;
+bool winning = false;
+
+float timeToWin = 0.0f;
+float timeToWinAfterEnteringCastleRoom = 5.0f;
+
+bool drawDebug = false;
 
 int main(void)
 {
@@ -282,6 +289,14 @@ int main(void)
             }
         });
 
+    auto CastleDrawingSystem = world.system<SpriteSheet, Vector2, Castle>()
+        .kind(flecs::OnUpdate)
+        .each([](flecs::iter& it, size_t, SpriteSheet& ss, Vector2& position, Castle castle) {
+            //std::cout << "Update Sprite Sheet Animation Drawing System." << std::endl;
+            //spriteAnimation.curAnimationStateY = 5;
+            DrawTexture(ss.spriteSheetTexture, position.x, position.y, WHITE);
+        });
+
 #pragma endregion
 
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
@@ -371,17 +386,20 @@ int main(void)
     Vector2 previousMovementDirection = Vector2Zeros;
     Vector2 prioritizeAxis = Vector2Zeros;
 
+    std::string castleName = "Castle Of Peach";
+    auto e_Castle = world.lookup(castleName.c_str());
+
     // VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV GAME LOOP VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
     while (!WindowShouldClose())
     {
-        if (!playerIsDead) {
+        if (!playerIsDead && !won) {
 
             bool doDebugPrint = false;
             //std::cout << totalTilesX << ", " << totalTilesY << std::endl;
 
-            //if (IsKeyPressed(KEY_ONE)) {
-            //    doDebugPrint = true;
-            //}
+            if (IsKeyPressed(KEY_ONE)) {
+                doDebugPrint = true;
+            }
 
 #pragma region Get Component References.
         //Variables.
@@ -738,6 +756,20 @@ int main(void)
 
 #pragma endregion
 
+            //playerCharacter_mut->position.pos = *e_Castle.get_mut<Vector2>();
+
+            Castle* curCastle = e_Castle.get_mut<Castle>();
+            if (!winning && Vector2Equals(curCastle->roomIndex, curRoomIndexNextPlayerPos)) {
+                timeToWin = GetTime() + timeToWinAfterEnteringCastleRoom;
+                winning = true;
+            }
+
+            if (winning && timeToWin <= GetTime()) {
+                //std::cout << "won!" << std::endl;
+                won = true;
+            }
+
+
 #pragma region Draw To Screen.
 
             BeginDrawing();
@@ -775,7 +807,31 @@ int main(void)
             //SpriteSheetAnimationDrawingSystem.run();
             //std::cout << "Before draw: " << playerCharacterStates_mut->attackingSide << std::endl;
 
-            GoblinAnimationGraphDrawingSystem.run();
+            //GoblinAnimationGraphDrawingSystem.run();
+            for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
+
+                auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
+                SpriteSheet* ss = e_CurrentGoblin.get_mut<SpriteSheet>();
+                Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
+                CharacterStates* curGoblinCharacterStates = e_CurrentGoblin.get_mut<CharacterStates>();
+                BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
+                AnimationGraph* animationGraph = e_CurrentGoblin.get_mut<AnimationGraph>();
+
+                //Rectangle curGoblinWorldBB = Rectangle{ curGoblinCharacter->position.pos.x - curGoblinBB2D->reducedBoundingBoxForSprite.width * 0.5f, curGoblinCharacter->position.pos.y - curGoblinBB2D->reducedBoundingBoxForSprite.height * 0.5f
+                //                                        , curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinBB2D->reducedBoundingBoxForSprite.height };
+
+                Rectangle view = animationGraph->animations[animationGraph->currentAnimationPlaying].curFrameView;
+                view.width *= curGoblinCharacter->facingDirection.x;
+                if (curGoblinCharacterStates->stunned) {
+                    DrawTextureRec(ss->spriteSheetTexture, view, curGoblinCharacter->position.pos - Vector2{ ss->cell.width * 0.5f, ss->cell.height * 0.5f }, RED);
+                }
+                else {
+                    DrawTextureRec(ss->spriteSheetTexture, view, curGoblinCharacter->position.pos - Vector2{ ss->cell.width * 0.5f, ss->cell.height * 0.5f }, WHITE);
+                }
+
+            }
+
+            CastleDrawingSystem.run();
             PlayerAnimationGraphDrawingSystem.run();
             //std::cout << "After draw: " << playerCharacterStates_mut->attackingSide << std::endl;
 
@@ -788,91 +844,94 @@ int main(void)
 
             //DrawCircle(curPlayerPos->pos.x, curPlayerPos->pos.y, 10.0f, RED);
             //DrawRectangleLines(playerCharacter_mut->position.pos.x - (width * 0.5f), playerCharacter_mut->position.pos.y - (height * 0.5f), width, height, RED);
-            float width = playerBB2D->reducedBoundingBoxForSprite.width;
-            float height = playerBB2D->reducedBoundingBoxForSprite.height;
 
-            float posX = playerCharacter_mut->position.pos.x + playerBB2D->reducedBoundingBoxForSprite.x;
-            float posY = playerCharacter_mut->position.pos.y + playerBB2D->reducedBoundingBoxForSprite.y;
+            if (drawDebug) {
 
-            DrawRectangleLines(posX, posY, width, height, RED);
+                float width = playerBB2D->reducedBoundingBoxForSprite.width;
+                float height = playerBB2D->reducedBoundingBoxForSprite.height;
 
-            //posY -= height;
-            //height *= 3.0f;
-            //posX += width;
-            //width *= 1.5f;
+                float posX = playerCharacter_mut->position.pos.x + playerBB2D->reducedBoundingBoxForSprite.x;
+                float posY = playerCharacter_mut->position.pos.y + playerBB2D->reducedBoundingBoxForSprite.y;
 
-            //DrawRectangleLines(posX, posY, width, height, RED);
+                DrawRectangleLines(posX, posY, width, height, RED);
 
-            Rectangle playerWorldAttackBB = Rectangle{ playerCharacter_mut->position.pos.x , playerCharacter_mut->position.pos.y , 0.0f, 0.0f };
+                //posY -= height;
+                //height *= 3.0f;
+                //posX += width;
+                //width *= 1.5f;
 
-            if (playerCharacterStates_mut->attackingSide) {
-                //std::cout << "Attacked side" << std::endl;
-                //std::cout << playerCharacter_mut->facingDirection.x << std::endl;
-                if (playerCharacter_mut->facingDirection.x < 0.0f) {
-                    playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x * -4.0f;
+                //DrawRectangleLines(posX, posY, width, height, RED);
+
+                Rectangle playerWorldAttackBB = Rectangle{ playerCharacter_mut->position.pos.x , playerCharacter_mut->position.pos.y , 0.0f, 0.0f };
+
+                if (playerCharacterStates_mut->attackingSide) {
+                    //std::cout << "Attacked side" << std::endl;
+                    //std::cout << playerCharacter_mut->facingDirection.x << std::endl;
+                    if (playerCharacter_mut->facingDirection.x < 0.0f) {
+                        playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x * -4.0f;
+                    }
+                    else {
+                        playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x;
+                    }
+                    playerWorldAttackBB.y += playerCharacter_mut->attackSideOverlapRect.y;
+                    playerWorldAttackBB.width = playerCharacter_mut->attackSideOverlapRect.width;
+                    playerWorldAttackBB.height = playerCharacter_mut->attackSideOverlapRect.height;
                 }
-                else {
-                    playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x;
+                else if (playerCharacterStates_mut->attackingDown) {
+                    //std::cout << "Attacked down" << std::endl;
+                    playerWorldAttackBB.x += playerCharacter_mut->attackDownOverlapRect.x;
+                    playerWorldAttackBB.y += playerCharacter_mut->attackDownOverlapRect.y;
+                    playerWorldAttackBB.width = playerCharacter_mut->attackDownOverlapRect.width;
+                    playerWorldAttackBB.height = playerCharacter_mut->attackDownOverlapRect.height;
+
                 }
-                playerWorldAttackBB.y += playerCharacter_mut->attackSideOverlapRect.y;
-                playerWorldAttackBB.width = playerCharacter_mut->attackSideOverlapRect.width;
-                playerWorldAttackBB.height = playerCharacter_mut->attackSideOverlapRect.height;
-            }
-            else if (playerCharacterStates_mut->attackingDown) {
-                //std::cout << "Attacked down" << std::endl;
-                playerWorldAttackBB.x += playerCharacter_mut->attackDownOverlapRect.x;
-                playerWorldAttackBB.y += playerCharacter_mut->attackDownOverlapRect.y;
-                playerWorldAttackBB.width = playerCharacter_mut->attackDownOverlapRect.width;
-                playerWorldAttackBB.height = playerCharacter_mut->attackDownOverlapRect.height;
+                else if (playerCharacterStates_mut->attackingUp) {
+                    //std::cout << "Attacked up" << std::endl;
+                    playerWorldAttackBB.x += playerCharacter_mut->attackUpOverlapRect.x;
+                    playerWorldAttackBB.y += playerCharacter_mut->attackUpOverlapRect.y;
+                    playerWorldAttackBB.width = playerCharacter_mut->attackUpOverlapRect.width;
+                    playerWorldAttackBB.height = playerCharacter_mut->attackUpOverlapRect.height;
 
-            }
-            else if (playerCharacterStates_mut->attackingUp) {
-                //std::cout << "Attacked up" << std::endl;
-                playerWorldAttackBB.x += playerCharacter_mut->attackUpOverlapRect.x;
-                playerWorldAttackBB.y += playerCharacter_mut->attackUpOverlapRect.y;
-                playerWorldAttackBB.width = playerCharacter_mut->attackUpOverlapRect.width;
-                playerWorldAttackBB.height = playerCharacter_mut->attackUpOverlapRect.height;
-
-            }
-
-            DrawRectangleLines(playerWorldAttackBB.x, playerWorldAttackBB.y, playerWorldAttackBB.width, playerWorldAttackBB.height, RED);
-
-
-            for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
-
-                auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
-                BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
-                Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
-
-                Rectangle curGoblinWorldBB = Rectangle{ curGoblinCharacter->position.pos.x - curGoblinBB2D->reducedBoundingBoxForSprite.width * 0.5f, curGoblinCharacter->position.pos.y - curGoblinBB2D->reducedBoundingBoxForSprite.height * 0.5f
-                                                        , curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinBB2D->reducedBoundingBoxForSprite.height };
-                if (doDebugPrint) {
-                    std::cout << "3 := " << curGoblinWorldBB.x << ", " << curGoblinWorldBB.y << ", " << curGoblinWorldBB.width << ", " << curGoblinWorldBB.height << std::endl;
                 }
 
-                DrawRectangleLines(curGoblinWorldBB.x, curGoblinWorldBB.y, curGoblinWorldBB.width, curGoblinWorldBB.height, RED);
+                DrawRectangleLines(playerWorldAttackBB.x, playerWorldAttackBB.y, playerWorldAttackBB.width, playerWorldAttackBB.height, RED);
 
-            }
 
-            for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
+                for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
 
-                auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
-                Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
-                CharacterStates* curGoblinCharacterStates = e_CurrentGoblin.get_mut<CharacterStates>();
-
-                if (!curGoblinCharacter->attackDealtWith && curGoblinCharacterStates->attackingSide) {
-
+                    auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
                     BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
+                    Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
 
-                    float offsetX = curGoblinCharacter->facingDirection.x > 0.0f ? curGoblinCharacter->attackSideOverlapRect.width * 0.5f : curGoblinCharacter->attackSideOverlapRect.width * -1.5f;
-                    Rectangle curGoblinSideAttackWorldBB = Rectangle{ curGoblinCharacter->position.pos.x + offsetX, curGoblinCharacter->position.pos.y - curGoblinCharacter->attackSideOverlapRect.height * 0.5f
-                                                            , curGoblinCharacter->attackSideOverlapRect.width, curGoblinCharacter->attackSideOverlapRect.height };
+                    Rectangle curGoblinWorldBB = Rectangle{ curGoblinCharacter->position.pos.x - curGoblinBB2D->reducedBoundingBoxForSprite.width * 0.5f, curGoblinCharacter->position.pos.y - curGoblinBB2D->reducedBoundingBoxForSprite.height * 0.5f
+                                                            , curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinBB2D->reducedBoundingBoxForSprite.height };
+                    if (doDebugPrint) {
+                        std::cout << "3 := " << curGoblinWorldBB.x << ", " << curGoblinWorldBB.y << ", " << curGoblinWorldBB.width << ", " << curGoblinWorldBB.height << std::endl;
+                    }
 
-                    DrawRectangleLines(curGoblinSideAttackWorldBB.x, curGoblinSideAttackWorldBB.y, curGoblinSideAttackWorldBB.width, curGoblinSideAttackWorldBB.height, RED);
+                    DrawRectangleLines(curGoblinWorldBB.x, curGoblinWorldBB.y, curGoblinWorldBB.width, curGoblinWorldBB.height, RED);
+
                 }
 
-            }
+                for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
 
+                    auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
+                    Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
+                    CharacterStates* curGoblinCharacterStates = e_CurrentGoblin.get_mut<CharacterStates>();
+
+                    if (!curGoblinCharacter->attackDealtWith && curGoblinCharacterStates->attackingSide) {
+
+                        BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
+
+                        float offsetX = curGoblinCharacter->facingDirection.x > 0.0f ? curGoblinCharacter->attackSideOverlapRect.width * 0.5f : curGoblinCharacter->attackSideOverlapRect.width * -1.5f;
+                        Rectangle curGoblinSideAttackWorldBB = Rectangle{ curGoblinCharacter->position.pos.x + offsetX, curGoblinCharacter->position.pos.y - curGoblinCharacter->attackSideOverlapRect.height * 0.5f
+                                                                , curGoblinCharacter->attackSideOverlapRect.width, curGoblinCharacter->attackSideOverlapRect.height };
+
+                        DrawRectangleLines(curGoblinSideAttackWorldBB.x, curGoblinSideAttackWorldBB.y, curGoblinSideAttackWorldBB.width, curGoblinSideAttackWorldBB.height, RED);
+                    }
+
+                }
+            }
 
             EndMode2D();
 
@@ -884,9 +943,13 @@ int main(void)
                 float padding = (heartRec.width) * 3.0f;
                 DrawTextureEx(heartUISS->spriteSheetTexture, Vector2{ (heartRec.width + padding) * i, heartRec.height }, 0.0f, 3.0f, WHITE);
             }
-            DrawFPS(40, 40);
+            if (drawDebug) {
+                DrawFPS(40, 40);
+            }
 
             EndDrawing();
+
+            //std::cout << playerCharacter_mut->position.pos.y << std::endl;
 
 #pragma endregion
 
@@ -897,6 +960,13 @@ int main(void)
             BeginDrawing();
             ClearBackground(DARKPURPLE);
             DrawText("THE KNIGHT IS DEAD!", screenWidth / 2 - 350.0f, screenHeight / 2, 56, RED);
+            EndDrawing();
+        }
+
+        if (won) {
+            BeginDrawing();
+            ClearBackground(DARKGREEN);
+            DrawText("THE KNIGHT HAS WON!", screenWidth / 2 - 350.0f, screenHeight / 2, 56, RED);
             EndDrawing();
         }
     }
