@@ -23,6 +23,7 @@ public:
 	float timeBetweenEachFrameUpdate	= 0.0f;
 
 	bool loop							= true;
+	bool loopFinished					= false;
 
 	Rectangle curFrameView				= { 0.0f, 0.0f, 0.0f, 0.0f };
 };
@@ -53,7 +54,11 @@ void UpdateAnimation(SpriteAnimation& spriteAnimation) {
 
 		spriteAnimation.currentFramePlaying++;
 
-		if (spriteAnimation.currentFramePlaying > spriteAnimation.endFrameX) {
+		if (spriteAnimation.currentFramePlaying == spriteAnimation.startFrameX) {
+			spriteAnimation.loopFinished = false;
+		}
+		else if (spriteAnimation.currentFramePlaying > spriteAnimation.endFrameX) {
+			spriteAnimation.loopFinished = true;
 			spriteAnimation.currentFramePlaying = spriteAnimation.loop ? spriteAnimation.startFrameX : spriteAnimation.endFrameX;
 		}
 
@@ -66,6 +71,7 @@ void UpdateAnimation(SpriteAnimation& spriteAnimation) {
 	}
 	else {
 		spriteAnimation.timeSinceLastFrameUpdate += GetFrameTime();
+		spriteAnimation.loopFinished = false;
 	}
 
 }

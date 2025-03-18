@@ -342,6 +342,7 @@ int main(void)
 
     bool attackClosed = true;
     float attackCloseTime = 0.0f;
+    float attackCheckTime = 0.0f;
 
     Vector2 previousMovementDirection = Vector2Zeros;
     Vector2 prioritizeAxis = Vector2Zeros;
@@ -352,9 +353,9 @@ int main(void)
         bool doDebugPrint = false;
         //std::cout << totalTilesX << ", " << totalTilesY << std::endl;
 
-        if (IsKeyPressed(KEY_ONE)) {
-            doDebugPrint = true;
-        }
+        //if (IsKeyPressed(KEY_ONE)) {
+        //    doDebugPrint = true;
+        //}
 
 #pragma region Get Component References.
         //Variables.
@@ -376,6 +377,7 @@ int main(void)
 
 #pragma region Handle Open Attack States For Player
 
+        bool calculateAttack = false;
         //Handle open attack states for player.
         if (!attackClosed) {
             if (attackCloseTime <= GetTime()) {
@@ -385,6 +387,9 @@ int main(void)
                 playerCharacterStates_mut->attackingDown = false;
                 playerCharacterStates_mut->attackingUp = false;
                 attackClosed = true;
+            }
+            else if (attackCheckTime <= GetTime()) {
+                calculateAttack = true;
             }
         }
 #pragma endregion
@@ -433,7 +438,6 @@ int main(void)
 
 #pragma region Player Attaccking Input.
         //Handle player attacking input.
-        bool calculateAttack = false;
 
         if (IsKeyPressed(KEY_SPACE) && !IsCharacterAttacking(*playerCharacterStates_mut)) {
             //std::cout << "Attacking!" << std::endl;
@@ -452,8 +456,8 @@ int main(void)
             }
 
             attackCloseTime = GetTime() + attackingTime;
+            attackCheckTime = GetTime() + attackingTime * 0.5f;
             attackClosed = false;
-            calculateAttack = true;
         }
 #pragma endregion
 
@@ -498,16 +502,65 @@ int main(void)
                 Vector2 knockBackDir = Vector2{ nextPlayerPosX.x, nextPlayerPosY.y } - curGoblinCharacter->position.pos;
                 knockBackDir = Vector2Normalize(knockBackDir);
 
-                float knockBackStrength = 50.0f;
+                float knockBackStrength = 25.0f;
 
                 curFrameMovement = knockBackDir * knockBackStrength;
                 touchedEnemy = true;
             }
         }
-
         if (touchedEnemy) {
             timeToMoveAfterEnemyTouch = GetTime() + timeOutForTouchingEnemy;
         }
+
+        bool touchedByEnemy = false;
+        int touchingEnemyIndex = -1;
+        for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
+
+            auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
+            Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
+            CharacterStates* curGoblinCharacterStates = e_CurrentGoblin.get_mut<CharacterStates>();
+
+            if (!curGoblinCharacter->attackDealtWith && curGoblinCharacterStates->attackingSide) {
+
+                //std::cout << "Checking goblin : " << e_CurrentGoblin.name() << std::endl;
+
+                BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
+
+                Rectangle playerWorldBB = Rectangle{ nextPlayerPosX.x + playerBB2D->reducedBoundingBoxForSprite.width, nextPlayerPosY.y + playerBB2D->reducedBoundingBoxForSprite.height
+                                                    , playerBB2D->reducedBoundingBoxForSprite.width, playerBB2D->reducedBoundingBoxForSprite.height };
+
+                float offsetX = curGoblinCharacter->facingDirection.x > 0.0f ? curGoblinCharacter->attackSideOverlapRect.width * 0.5f : curGoblinCharacter->attackSideOverlapRect.width * -1.5f;
+                Rectangle curGoblinSideAttackWorldBB = Rectangle{ curGoblinCharacter->position.pos.x + offsetX, curGoblinCharacter->position.pos.y - curGoblinCharacter->attackSideOverlapRect.height * 0.5f
+                                                        , curGoblinCharacter->attackSideOverlapRect.width, curGoblinCharacter->attackSideOverlapRect.height };
+
+                //std::cout << playerWorldBB.x << ", " << playerWorldBB.y << ", " << playerWorldBB.width << ", " << playerWorldBB.height << std::endl;
+                //std::cout << curGoblinSideAttackWorldBB.x << ", " << curGoblinSideAttackWorldBB.y << ", " << curGoblinSideAttackWorldBB.width << ", " << curGoblinSideAttackWorldBB.height << std::endl;
+
+                if (/*CheckCollisionRecs(playerWorldBB, curGoblinSideAttackWorldBB) || */CheckCollisionPointRec(Vector2{ nextPlayerPosX.x, nextPlayerPosY.y }, curGoblinSideAttackWorldBB)) {
+                    //std::cout << "Player and " << e_CurrentGoblin.name() << " collided!!!!" << std::endl;
+                    Vector2 knockBackDir = Vector2{ nextPlayerPosX.x, nextPlayerPosY.y } - curGoblinCharacter->position.pos;
+                    knockBackDir = Vector2Normalize(knockBackDir);
+
+                    float knockBackStrength = 50.0f;
+
+                    curFrameMovement = knockBackDir * knockBackStrength;
+                    touchedByEnemy = true;
+                    touchingEnemyIndex = i;
+
+                    curGoblinCharacter->attackDealtWith = true;
+
+                    std::cout << "Attacked by := " << e_CurrentGoblin.name() << std::endl;
+                }
+
+            }
+
+        }
+
+        if (touchedByEnemy) {
+            timeToMoveAfterEnemyTouch = GetTime() + timeOutForTouchingEnemy;
+        }
+
+
 
         nextPlayerPosX = playerCharacter_mut->position.pos + Vector2{ curFrameMovement.x, 0.0f } *4.0f;
         nextPlayerPosY = playerCharacter_mut->position.pos + Vector2{ 0.0f, curFrameMovement.y } *4.0f;
@@ -598,10 +651,7 @@ int main(void)
                     knockBackDir = Vector2Normalize(knockBackDir);
 
                     float knockBackStrength = 10.0f;
-
-                    curGoblinCharacter->knockBack = knockBackDir * knockBackStrength;
-
-                    ApplyKnockBackToGoblin(world, *mut_tm, curRoomIndexNextPlayerPos, i, *camera);
+                    ApplyKnockBackToGoblin(world, *mut_tm, curRoomIndexNextPlayerPos, i, knockBackDir * knockBackStrength, *camera);
                     //curFrameMovement = knockBackDir * knockBackStrength;
                     //std::cout << "Hit " << e_CurrentGoblin.name() << std::endl;
                 }
@@ -763,6 +813,26 @@ int main(void)
             DrawRectangleLines(curGoblinWorldBB.x, curGoblinWorldBB.y, curGoblinWorldBB.width, curGoblinWorldBB.height, RED);
 
         }
+
+        for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
+
+            auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
+            Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
+            CharacterStates* curGoblinCharacterStates = e_CurrentGoblin.get_mut<CharacterStates>();
+
+            if (!curGoblinCharacter->attackDealtWith && curGoblinCharacterStates->attackingSide) {
+
+                BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
+
+                float offsetX = curGoblinCharacter->facingDirection.x > 0.0f ? curGoblinCharacter->attackSideOverlapRect.width * 0.5f : curGoblinCharacter->attackSideOverlapRect.width * -1.5f;
+                Rectangle curGoblinSideAttackWorldBB = Rectangle{ curGoblinCharacter->position.pos.x + offsetX, curGoblinCharacter->position.pos.y - curGoblinCharacter->attackSideOverlapRect.height * 0.5f
+                                                        , curGoblinCharacter->attackSideOverlapRect.width, curGoblinCharacter->attackSideOverlapRect.height };
+
+                DrawRectangleLines(curGoblinSideAttackWorldBB.x, curGoblinSideAttackWorldBB.y, curGoblinSideAttackWorldBB.width, curGoblinSideAttackWorldBB.height, RED);
+            }
+
+        }
+
 
         EndMode2D();
 

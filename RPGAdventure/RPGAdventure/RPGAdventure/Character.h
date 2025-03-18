@@ -13,8 +13,10 @@ public:
     Rectangle attackSideOverlapRect;
     Rectangle attackUpOverlapRect;
     Rectangle attackDownOverlapRect;
-
-    Vector2 knockBack = Vector2Zeros;
+    
+    float attackTime = 1.0f;
+    float nextAttackTime = 0.0f;
+    bool attackDealtWith = true;
 };
 
 class CharacterStates {

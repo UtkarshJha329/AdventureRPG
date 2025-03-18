@@ -79,6 +79,8 @@ void SpawnGoblins(flecs::world& world, TileMapData& tmd, TileMap& tm, Camera2D& 
 
                 Character* goblin = e_torchGoblinEntity.get_mut<Character>();
 
+                goblin->attackTime = 2.0f;
+
                 int numTilesYRounded = 7;
                 Vector2 tileRoomIndex = Vector2{ x / numTilesX, y / (float)numTilesYRounded };
                 //Vector2 offsetByTiles = Vector2{ ((tileRoomIndex.x * numTilesX) + x) * tileScaleX, ((tileRoomIndex.y * numTilesYRounded) + y) * tileScaleY } + Vector2{ tileScaleX * 0.5f, tileScaleY * 0.25f };
@@ -122,12 +124,26 @@ void MakeGoblinsMoveIt(flecs::world& world, TileMap& tm, Vector2 roomIndex, Vect
         Goblin* goblin_mut = tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[i].get_mut<Goblin>();
         Character* goblinCharacter_mut = tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[i].get_mut<Character>();
         CharacterStates* goblinCharacterStates_mut = tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[i].get_mut<CharacterStates>();
+        AnimationGraph* goblinAnimationGraph_mut = tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[i].get_mut<AnimationGraph>();
 
         Vector2 goblinDirToPlayer = Vector2Subtract(playerPos, goblinCharacter_mut->position.pos);
         float distanceToPlayer = Vector2Length(goblinDirToPlayer);
         goblinDirToPlayer = Vector2Normalize(goblinDirToPlayer);
 
         goblinCharacter_mut->facingDirection = goblinDirToPlayer * Vector2{ 1 / abs(goblinDirToPlayer.x), 1 / abs(goblinDirToPlayer.y) };
+
+        bool finishedPlayingAttackAnimaiton = IsCharacterAttacking(*goblinCharacterStates_mut)
+                                            && (goblinAnimationGraph_mut->animations[torchGoblin_CharacterSpriteSheet_attack_side_animation_yPos].loopFinished);
+        //bool finishedPlayingAttackAnimaiton = IsCharacterAttacking(*goblinCharacterStates_mut)
+        //                                    && (goblinAnimationGraph_mut->animations[torchGoblin_CharacterSpriteSheet_attack_side_animation_yPos].currentFramePlaying
+        //                                        == goblinAnimationGraph_mut->animations[torchGoblin_CharacterSpriteSheet_attack_side_animation_yPos].endFrameX);
+
+        //if (finishedPlayingAttackAnimaiton) {
+        //    std::cout << "FINISHED PLAYING ANIMATION!!!" << std::endl;
+        //}
+        //else {
+        //    std::cout << "playing animation." << std::endl;
+        //}
 
         if (distanceToPlayer >= 200.0f && !IsCharacterAttacking(*goblinCharacterStates_mut)) {
 
@@ -166,34 +182,41 @@ void MakeGoblinsMoveIt(flecs::world& world, TileMap& tm, Vector2 roomIndex, Vect
             goblinCharacterStates_mut->idle = Vector2Length(goblinCharacter_mut->velocity.vel) == 0.0f;
             goblinCharacterStates_mut->attackingSide = false;
 
+            goblinCharacter_mut->attackDealtWith = true;
+
         }
-        else if (distanceToPlayer <= 150.0f) {
+        else if (distanceToPlayer <= 200.0f && goblinCharacter_mut->nextAttackTime <= GetTime()) {
             //std::cout << "goblin attacking." << GetTime() << std::endl;
             //std::cout << "goblin attacking." << GetTime() << std::endl;
             //std::cout << tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[i].name() << "IS ATTACKING!!!!" << std::endl;
             goblinCharacterStates_mut->attackingSide = true;
             goblinCharacterStates_mut->running = false;
             goblinCharacterStates_mut->idle = false;
+
+            goblinCharacter_mut->attackDealtWith = false;
+
+            goblinCharacter_mut->nextAttackTime = GetTime() + goblinCharacter_mut->attackTime;
         }
-        else {
+        else if(finishedPlayingAttackAnimaiton) {
             //std::cout << "goblin stopped attacking." << GetTime() << std::endl;
             goblinCharacterStates_mut->attackingSide = false;
             //goblinCharacterStates_mut->running = true;
             //goblinCharacterStates_mut->idle = false;
             goblinCharacterStates_mut->running = false;
             goblinCharacterStates_mut->idle = true;
+
+            goblinCharacter_mut->attackDealtWith = true;
         }
     }
 }
 
-void ApplyKnockBackToGoblin(flecs::world& world, TileMap& tm, Vector2 roomIndex, int goblinIndex, Camera2D& camera) {
+void ApplyKnockBackToGoblin(flecs::world& world, TileMap& tm, Vector2 roomIndex, int goblinIndex, Vector2 knockBackAmount, Camera2D& camera) {
 
     Goblin* goblin_mut = tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[goblinIndex].get_mut<Goblin>();
     Character* goblinCharacter_mut = tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[goblinIndex].get_mut<Character>();
     CharacterStates* goblinCharacterStates_mut = tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[goblinIndex].get_mut<CharacterStates>();
 
-    Vector2 curFrameMovement = goblinCharacter_mut->knockBack;
-    goblinCharacter_mut->knockBack = Vector2Zeros;
+    Vector2 curFrameMovement = knockBackAmount;
     Vector2 goblinNextPos = goblinCharacter_mut->position.pos + curFrameMovement * 4.0f;
 
     Vector2 cameraScreenPos = GetWorldToScreen2D(camera.target, camera);
