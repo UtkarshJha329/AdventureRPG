@@ -38,6 +38,8 @@ const int timeOutForTouchingEnemy = 1.0f;
 float timeToMoveAfterEnemyTouch = 0.0f;
 float speed = 1000.0f;
 
+bool playerIsDead = false;
+
 int main(void)
 {
     flecs::world world;
@@ -133,6 +135,15 @@ int main(void)
                                                       ,bb.reducedBoundingBoxForSprite.width * 3.0f, bb.reducedBoundingBoxForSprite.height * 1.0f };
             character.attackDownOverlapRect = Rectangle{ bb.reducedBoundingBoxForSprite.x - bb.reducedBoundingBoxForSprite.width, bb.reducedBoundingBoxForSprite.y + bb.reducedBoundingBoxForSprite.height
                                                         ,bb.reducedBoundingBoxForSprite.width * 3.0f, bb.reducedBoundingBoxForSprite.height * 1.0f };
+        });
+
+    auto InitPlayerHealthSystem = world.system<Character, Player>()
+        .kind(flecs::OnStart)
+        .each([](flecs::iter& it, size_t, Character& character, Player) {
+        //std::cout << "Init Sprite Sheet System." << std::endl;
+            
+            character.health = 2.0f;
+
         });
 
     auto InitSpriteSheetAnimationSystem = world.system<SpriteSheet, SpriteAnimation>()
@@ -350,254 +361,469 @@ int main(void)
     // VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV GAME LOOP VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
     while (!WindowShouldClose())
     {
-        bool doDebugPrint = false;
-        //std::cout << totalTilesX << ", " << totalTilesY << std::endl;
+        if (!playerIsDead) {
 
-        //if (IsKeyPressed(KEY_ONE)) {
-        //    doDebugPrint = true;
-        //}
+            bool doDebugPrint = false;
+            //std::cout << totalTilesX << ", " << totalTilesY << std::endl;
+
+            //if (IsKeyPressed(KEY_ONE)) {
+            //    doDebugPrint = true;
+            //}
 
 #pragma region Get Component References.
         //Variables.
-        Camera2D* camera = e_Camera2D.get_mut<Camera2D>();
+            Camera2D* camera = e_Camera2D.get_mut<Camera2D>();
 
-        SpriteSheet* playerSS = e_Player.get_mut<SpriteSheet>();
-        BoundingBox2D* playerBB2D = e_Player.get_mut<BoundingBox2D>();
-        Character* playerCharacter_mut = e_Player.get_mut<Character>();
-        CharacterStates* playerCharacterStates_mut = e_Player.get_mut<CharacterStates>();
+            SpriteSheet* playerSS = e_Player.get_mut<SpriteSheet>();
+            BoundingBox2D* playerBB2D = e_Player.get_mut<BoundingBox2D>();
+            Character* playerCharacter_mut = e_Player.get_mut<Character>();
+            CharacterStates* playerCharacterStates_mut = e_Player.get_mut<CharacterStates>();
 
-        playerCharacter_mut->velocity.vel = Vector2Zeros;
+            playerCharacter_mut->velocity.vel = Vector2Zeros;
 
-        Vector2 curFrameMovementDirection = Vector2Zeros;
+            Vector2 curFrameMovementDirection = Vector2Zeros;
 
-        Vector2 curFrameMovement = Vector2Zeros;
+            Vector2 curFrameMovement = Vector2Zeros;
 
-        float deltaTime = GetFrameTime();
+            float deltaTime = GetFrameTime();
 #pragma endregion
 
 #pragma region Handle Open Attack States For Player
 
-        bool calculateAttack = false;
-        //Handle open attack states for player.
-        if (!attackClosed) {
-            if (attackCloseTime <= GetTime()) {
-                //std::cout << "Stopped Attack!" << std::endl;
+            bool calculateAttack = false;
+            //Handle open attack states for player.
+            if (!attackClosed) {
+                if (attackCloseTime <= GetTime()) {
+                    //std::cout << "Stopped Attack!" << std::endl;
 
-                playerCharacterStates_mut->attackingSide = false;
-                playerCharacterStates_mut->attackingDown = false;
-                playerCharacterStates_mut->attackingUp = false;
-                attackClosed = true;
+                    playerCharacterStates_mut->attackingSide = false;
+                    playerCharacterStates_mut->attackingDown = false;
+                    playerCharacterStates_mut->attackingUp = false;
+                    attackClosed = true;
+                }
+                else if (attackCheckTime <= GetTime()) {
+                    calculateAttack = true;
+                }
             }
-            else if (attackCheckTime <= GetTime()) {
-                calculateAttack = true;
-            }
-        }
 #pragma endregion
 
 #pragma region Player Movement Input.
-        //Handle player movement input.
+            //Handle player movement input.
 
-        if (timeToMoveAfterEnemyTouch < GetTime()) {
+            if (timeToMoveAfterEnemyTouch < GetTime()) {
 
-            if (IsKeyDown(KEY_RIGHT)) {
-                curFrameMovementDirection.x = 1.0;
+                if (IsKeyDown(KEY_RIGHT)) {
+                    curFrameMovementDirection.x = 1.0;
+                }
+                if (IsKeyDown(KEY_LEFT)) {
+                    curFrameMovementDirection.x = -1.0;
+                }
+                if (IsKeyDown(KEY_UP)) {
+                    curFrameMovementDirection.y = 1.0;
+                }
+                if (IsKeyDown(KEY_DOWN)) {
+                    curFrameMovementDirection.y = -1.0;
+                }
             }
-            if (IsKeyDown(KEY_LEFT)) {
-                curFrameMovementDirection.x = -1.0;
-            }
-            if (IsKeyDown(KEY_UP)) {
-                curFrameMovementDirection.y = 1.0;
-            }
-            if (IsKeyDown(KEY_DOWN)) {
-                curFrameMovementDirection.y = -1.0;
-            }
-        }
 
 #pragma endregion
-        
+
 #pragma region Player Facing Direction.
-        //Handle player facing direction.
+            //Handle player facing direction.
 
-        if (!Vector2Equals(curFrameMovementDirection, previousMovementDirection)) {
-            //std::cout << "Reset facing direction." << std::endl;
-            if (curFrameMovementDirection.x != 0) {
-                playerCharacter_mut->facingDirection.x = curFrameMovementDirection.x == 0.0f ? playerCharacter_mut->facingDirection.x : curFrameMovementDirection.x / abs(curFrameMovementDirection.x);
-            }
+            if (!Vector2Equals(curFrameMovementDirection, previousMovementDirection)) {
+                //std::cout << "Reset facing direction." << std::endl;
+                if (curFrameMovementDirection.x != 0) {
+                    playerCharacter_mut->facingDirection.x = curFrameMovementDirection.x == 0.0f ? playerCharacter_mut->facingDirection.x : curFrameMovementDirection.x / abs(curFrameMovementDirection.x);
+                }
 
-            playerCharacter_mut->facingDirection.y = curFrameMovementDirection.y == 0.0f ? playerCharacter_mut->facingDirection.y : curFrameMovementDirection.y / abs(curFrameMovementDirection.y);
-            if (curFrameMovementDirection.y != 0.0) {
-                prioritizeAxis.y = 1.0f;
-                prioritizeAxis.x = 0.0f;
+                playerCharacter_mut->facingDirection.y = curFrameMovementDirection.y == 0.0f ? playerCharacter_mut->facingDirection.y : curFrameMovementDirection.y / abs(curFrameMovementDirection.y);
+                if (curFrameMovementDirection.y != 0.0) {
+                    prioritizeAxis.y = 1.0f;
+                    prioritizeAxis.x = 0.0f;
+                }
+                if (curFrameMovementDirection.x != 0.0f) {
+                    prioritizeAxis.x = 1.0f;
+                    prioritizeAxis.y = 0.0f;
+                }
             }
-            if (curFrameMovementDirection.x != 0.0f) {
-                prioritizeAxis.x = 1.0f;
-                prioritizeAxis.y = 0.0f;
-            }
-        }
 #pragma endregion
 
 #pragma region Player Attaccking Input.
-        //Handle player attacking input.
+            //Handle player attacking input.
 
-        if (IsKeyPressed(KEY_SPACE) && !IsCharacterAttacking(*playerCharacterStates_mut)) {
-            //std::cout << "Attacking!" << std::endl;
+            if (IsKeyPressed(KEY_SPACE) && !IsCharacterAttacking(*playerCharacterStates_mut)) {
+                //std::cout << "Attacking!" << std::endl;
 
-            if (curFrameMovementDirection.x != 0.0f && playerCharacter_mut->facingDirection.x != 0.0f/* && curDirection.y == 0.0f*/) {
-                playerCharacterStates_mut->attackingSide = true;
-            }
-            else if (prioritizeAxis.x == 1.0f) {
-                playerCharacterStates_mut->attackingSide = true;
-            }
-            else if (playerCharacter_mut->facingDirection.y == -1.0f) {
-                playerCharacterStates_mut->attackingDown = true;
-            }
-            else if (playerCharacter_mut->facingDirection.y == 1.0f) {
-                playerCharacterStates_mut->attackingUp = true;
-            }
+                if (curFrameMovementDirection.x != 0.0f && playerCharacter_mut->facingDirection.x != 0.0f/* && curDirection.y == 0.0f*/) {
+                    playerCharacterStates_mut->attackingSide = true;
+                }
+                else if (prioritizeAxis.x == 1.0f) {
+                    playerCharacterStates_mut->attackingSide = true;
+                }
+                else if (playerCharacter_mut->facingDirection.y == -1.0f) {
+                    playerCharacterStates_mut->attackingDown = true;
+                }
+                else if (playerCharacter_mut->facingDirection.y == 1.0f) {
+                    playerCharacterStates_mut->attackingUp = true;
+                }
 
-            attackCloseTime = GetTime() + attackingTime;
-            attackCheckTime = GetTime() + attackingTime * 0.5f;
-            attackClosed = false;
-        }
+                attackCloseTime = GetTime() + attackingTime;
+                attackCheckTime = GetTime() + attackingTime * 0.5f;
+                attackClosed = false;
+            }
 #pragma endregion
 
 #pragma region Handle Player Movement And Animations.
 
-        Vector2 curFrameVel = curFrameMovementDirection * Vector2{ 1.0f, -1.0f } * speed;
-        curFrameMovement = curFrameVel * deltaTime;
+            Vector2 curFrameVel = curFrameMovementDirection * Vector2{ 1.0f, -1.0f } *speed;
+            curFrameMovement = curFrameVel * deltaTime;
 
-        if (IsCharacterAttacking(*playerCharacterStates_mut)) {
-            //std::cout << "Stop moving while attacking." << std::endl;
-            curFrameMovement = Vector2Zeros;
-            curFrameVel = Vector2Zeros;
-        }
-
-        Vector2 nextPlayerPosX = playerCharacter_mut->position.pos + Vector2{ curFrameMovement.x, 0.0f } *4.0f;
-        Vector2 nextPlayerPosY = playerCharacter_mut->position.pos + Vector2{ 0.0f, curFrameMovement.y } *4.0f;
-
-        Vector2 cameraScreenPosNextPlayerPos = GetWorldToScreen2D(camera->target, *camera);
-        Vector2 curFrameMovementInPixelsNextPlayerPos = GetWorldToScreen2D(curFrameMovement, *camera);
-
-        Vector2 curRoomIndexNextPlayerPos = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
-
-        bool touchedEnemy = false;
-        for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
-
-            auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
-            BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
-            Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
-
-            Rectangle playerWorldBB = Rectangle{ nextPlayerPosX.x + playerBB2D->reducedBoundingBoxForSprite.width, nextPlayerPosY.y + playerBB2D->reducedBoundingBoxForSprite.height
-                                                , playerBB2D->reducedBoundingBoxForSprite.width, playerBB2D->reducedBoundingBoxForSprite.height };
-
-            Rectangle curGoblinWorldBB = Rectangle{ curGoblinCharacter->position.pos.x + curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinCharacter->position.pos.y + curGoblinBB2D->reducedBoundingBoxForSprite.height
-                                                    , curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinBB2D->reducedBoundingBoxForSprite.height };
-
-            if (doDebugPrint) {
-                std::cout << "1 := " << curGoblinWorldBB.x << ", " << curGoblinWorldBB.y << ", " << curGoblinWorldBB.width << ", " << curGoblinWorldBB.height << std::endl;
+            if (IsCharacterAttacking(*playerCharacterStates_mut)) {
+                //std::cout << "Stop moving while attacking." << std::endl;
+                curFrameMovement = Vector2Zeros;
+                curFrameVel = Vector2Zeros;
             }
 
-            if (CheckCollisionRecs(playerWorldBB, curGoblinWorldBB)) {
-                //std::cout << "Player and " << e_CurrentGoblin.name() << " collided!!!!" << std::endl;
-                Vector2 knockBackDir = Vector2{ nextPlayerPosX.x, nextPlayerPosY.y } - curGoblinCharacter->position.pos;
-                knockBackDir = Vector2Normalize(knockBackDir);
+            Vector2 nextPlayerPosX = playerCharacter_mut->position.pos + Vector2{ curFrameMovement.x, 0.0f } *4.0f;
+            Vector2 nextPlayerPosY = playerCharacter_mut->position.pos + Vector2{ 0.0f, curFrameMovement.y } *4.0f;
 
-                float knockBackStrength = 25.0f;
+            Vector2 cameraScreenPosNextPlayerPos = GetWorldToScreen2D(camera->target, *camera);
+            Vector2 curFrameMovementInPixelsNextPlayerPos = GetWorldToScreen2D(curFrameMovement, *camera);
 
-                curFrameMovement = knockBackDir * knockBackStrength;
-                touchedEnemy = true;
-            }
-        }
-        if (touchedEnemy) {
-            timeToMoveAfterEnemyTouch = GetTime() + timeOutForTouchingEnemy;
-        }
+            Vector2 curRoomIndexNextPlayerPos = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
 
-        bool touchedByEnemy = false;
-        int touchingEnemyIndex = -1;
-        for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
+            bool touchedEnemy = false;
+            for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
 
-            auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
-            Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
-            CharacterStates* curGoblinCharacterStates = e_CurrentGoblin.get_mut<CharacterStates>();
-
-            if (!curGoblinCharacter->attackDealtWith && curGoblinCharacterStates->attackingSide) {
-
-                //std::cout << "Checking goblin : " << e_CurrentGoblin.name() << std::endl;
-
+                auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
                 BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
+                Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
 
                 Rectangle playerWorldBB = Rectangle{ nextPlayerPosX.x + playerBB2D->reducedBoundingBoxForSprite.width, nextPlayerPosY.y + playerBB2D->reducedBoundingBoxForSprite.height
                                                     , playerBB2D->reducedBoundingBoxForSprite.width, playerBB2D->reducedBoundingBoxForSprite.height };
 
-                float offsetX = curGoblinCharacter->facingDirection.x > 0.0f ? curGoblinCharacter->attackSideOverlapRect.width * 0.5f : curGoblinCharacter->attackSideOverlapRect.width * -1.5f;
-                Rectangle curGoblinSideAttackWorldBB = Rectangle{ curGoblinCharacter->position.pos.x + offsetX, curGoblinCharacter->position.pos.y - curGoblinCharacter->attackSideOverlapRect.height * 0.5f
-                                                        , curGoblinCharacter->attackSideOverlapRect.width, curGoblinCharacter->attackSideOverlapRect.height };
+                Rectangle curGoblinWorldBB = Rectangle{ curGoblinCharacter->position.pos.x + curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinCharacter->position.pos.y + curGoblinBB2D->reducedBoundingBoxForSprite.height
+                                                        , curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinBB2D->reducedBoundingBoxForSprite.height };
 
-                //std::cout << playerWorldBB.x << ", " << playerWorldBB.y << ", " << playerWorldBB.width << ", " << playerWorldBB.height << std::endl;
-                //std::cout << curGoblinSideAttackWorldBB.x << ", " << curGoblinSideAttackWorldBB.y << ", " << curGoblinSideAttackWorldBB.width << ", " << curGoblinSideAttackWorldBB.height << std::endl;
+                if (doDebugPrint) {
+                    std::cout << "1 := " << curGoblinWorldBB.x << ", " << curGoblinWorldBB.y << ", " << curGoblinWorldBB.width << ", " << curGoblinWorldBB.height << std::endl;
+                }
 
-                if (/*CheckCollisionRecs(playerWorldBB, curGoblinSideAttackWorldBB) || */CheckCollisionPointRec(Vector2{ nextPlayerPosX.x, nextPlayerPosY.y }, curGoblinSideAttackWorldBB)) {
+                if (CheckCollisionRecs(playerWorldBB, curGoblinWorldBB)) {
                     //std::cout << "Player and " << e_CurrentGoblin.name() << " collided!!!!" << std::endl;
                     Vector2 knockBackDir = Vector2{ nextPlayerPosX.x, nextPlayerPosY.y } - curGoblinCharacter->position.pos;
                     knockBackDir = Vector2Normalize(knockBackDir);
 
-                    float knockBackStrength = 50.0f;
+                    float knockBackStrength = 25.0f;
 
                     curFrameMovement = knockBackDir * knockBackStrength;
-                    touchedByEnemy = true;
-                    touchingEnemyIndex = i;
+                    touchedEnemy = true;
 
-                    curGoblinCharacter->attackDealtWith = true;
+                    std::cout << "Touched enemy " << e_CurrentGoblin.name() << std::endl;
+                    playerCharacter_mut->health--;
+                }
+            }
+            if (touchedEnemy) {
+                timeToMoveAfterEnemyTouch = GetTime() + timeOutForTouchingEnemy;
+            }
 
-                    std::cout << "Attacked by := " << e_CurrentGoblin.name() << std::endl;
+            bool touchedByEnemy = false;
+            int touchingEnemyIndex = -1;
+            for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
+
+                auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
+                Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
+                CharacterStates* curGoblinCharacterStates = e_CurrentGoblin.get_mut<CharacterStates>();
+
+                if (!curGoblinCharacter->attackDealtWith && curGoblinCharacterStates->attackingSide) {
+
+                    //std::cout << "Checking goblin : " << e_CurrentGoblin.name() << std::endl;
+
+                    BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
+
+                    Rectangle playerWorldBB = Rectangle{ nextPlayerPosX.x + playerBB2D->reducedBoundingBoxForSprite.width, nextPlayerPosY.y + playerBB2D->reducedBoundingBoxForSprite.height
+                                                        , playerBB2D->reducedBoundingBoxForSprite.width, playerBB2D->reducedBoundingBoxForSprite.height };
+
+                    float offsetX = curGoblinCharacter->facingDirection.x > 0.0f ? curGoblinCharacter->attackSideOverlapRect.width * 0.5f : curGoblinCharacter->attackSideOverlapRect.width * -1.5f;
+                    Rectangle curGoblinSideAttackWorldBB = Rectangle{ curGoblinCharacter->position.pos.x + offsetX, curGoblinCharacter->position.pos.y - curGoblinCharacter->attackSideOverlapRect.height * 0.5f
+                                                            , curGoblinCharacter->attackSideOverlapRect.width, curGoblinCharacter->attackSideOverlapRect.height };
+
+                    //std::cout << playerWorldBB.x << ", " << playerWorldBB.y << ", " << playerWorldBB.width << ", " << playerWorldBB.height << std::endl;
+                    //std::cout << curGoblinSideAttackWorldBB.x << ", " << curGoblinSideAttackWorldBB.y << ", " << curGoblinSideAttackWorldBB.width << ", " << curGoblinSideAttackWorldBB.height << std::endl;
+
+                    if (/*CheckCollisionRecs(playerWorldBB, curGoblinSideAttackWorldBB) || */CheckCollisionPointRec(Vector2{ nextPlayerPosX.x, nextPlayerPosY.y }, curGoblinSideAttackWorldBB)) {
+                        //std::cout << "Player and " << e_CurrentGoblin.name() << " collided!!!!" << std::endl;
+                        Vector2 knockBackDir = Vector2{ nextPlayerPosX.x, nextPlayerPosY.y } - curGoblinCharacter->position.pos;
+                        knockBackDir = Vector2Normalize(knockBackDir);
+
+                        float knockBackStrength = 50.0f;
+
+                        curFrameMovement = knockBackDir * knockBackStrength;
+                        touchedByEnemy = true;
+                        touchingEnemyIndex = i;
+
+                        curGoblinCharacter->attackDealtWith = true;
+
+                        std::cout << "Attacked by := " << e_CurrentGoblin.name() << std::endl;
+                        playerCharacter_mut->health--;
+                    }
+
                 }
 
             }
 
-        }
+            if (touchedByEnemy) {
+                timeToMoveAfterEnemyTouch = GetTime() + timeOutForTouchingEnemy;
+            }
 
-        if (touchedByEnemy) {
-            timeToMoveAfterEnemyTouch = GetTime() + timeOutForTouchingEnemy;
-        }
+            nextPlayerPosX = playerCharacter_mut->position.pos + Vector2{ curFrameMovement.x, 0.0f } *4.0f;
+            nextPlayerPosY = playerCharacter_mut->position.pos + Vector2{ 0.0f, curFrameMovement.y } *4.0f;
 
-        nextPlayerPosX = playerCharacter_mut->position.pos + Vector2{ curFrameMovement.x, 0.0f } *4.0f;
-        nextPlayerPosY = playerCharacter_mut->position.pos + Vector2{ 0.0f, curFrameMovement.y } *4.0f;
-        
-        //cameraScreenPosNextPlayerPos = GetWorldToScreen2D(camera->target, *camera);
-        curFrameMovementInPixelsNextPlayerPos = GetWorldToScreen2D(curFrameMovement, *camera);
+            //cameraScreenPosNextPlayerPos = GetWorldToScreen2D(camera->target, *camera);
+            curFrameMovementInPixelsNextPlayerPos = GetWorldToScreen2D(curFrameMovement, *camera);
 
-        Vector2 nextRoomIndexNextPlayerPosX = CurrentRoomIndex(GetWorldToScreen2D(nextPlayerPosX, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
-        Vector2 nextRoomIndexNextPlayerPosY = CurrentRoomIndex(GetWorldToScreen2D(nextPlayerPosY, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
+            Vector2 nextRoomIndexNextPlayerPosX = CurrentRoomIndex(GetWorldToScreen2D(nextPlayerPosX, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
+            Vector2 nextRoomIndexNextPlayerPosY = CurrentRoomIndex(GetWorldToScreen2D(nextPlayerPosY, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
 
-        Vector2 nextPlayerTileCoordIndexX = CurrentTileCoordIndex(GetWorldToScreen2D(nextPlayerPosX, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos);
-        Vector2 nextPlayerTileCoordIndexY = CurrentTileCoordIndex(GetWorldToScreen2D(nextPlayerPosY, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos);
+            Vector2 nextPlayerTileCoordIndexX = CurrentTileCoordIndex(GetWorldToScreen2D(nextPlayerPosX, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos);
+            Vector2 nextPlayerTileCoordIndexY = CurrentTileCoordIndex(GetWorldToScreen2D(nextPlayerPosY, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos);
 
-        int nextTileIndexX = nextPlayerTileCoordIndexX.y * totalTilesX + nextPlayerTileCoordIndexX.x;
-        int nextTileIndexY = nextPlayerTileCoordIndexY.y * totalTilesX + nextPlayerTileCoordIndexY.x;
+            int nextTileIndexX = nextPlayerTileCoordIndexX.y * totalTilesX + nextPlayerTileCoordIndexX.x;
+            int nextTileIndexY = nextPlayerTileCoordIndexY.y * totalTilesX + nextPlayerTileCoordIndexY.x;
 
-        //Stop player from moving 
-        if (IsTileFilledWithCollider(*mut_tm, nextPlayerTileCoordIndexX, totalTilesX)) {
-            //std::cout << "Moving into an empty tile." << std::endl;
-            curFrameMovement = Vector2{ curFrameMovement.x, -curFrameMovement.y } * -1.0f;
-            curFrameVel = Vector2{ curFrameVel.x, -curFrameVel.y } * -1.0f;
-        }
-        if (IsTileFilledWithCollider(*mut_tm, nextPlayerTileCoordIndexY, totalTilesX)) {
-            //std::cout << "Moving into an empty tile." << std::endl;
-            curFrameMovement = Vector2{ -curFrameMovement.x, curFrameMovement.y } * -1.0f;
-            curFrameVel = Vector2{ -curFrameVel.x, curFrameVel.y } * -1.0f;
-        }
+            //Stop player from moving 
+            if (IsTileFilledWithCollider(*mut_tm, nextPlayerTileCoordIndexX, totalTilesX)) {
+                //std::cout << "Moving into an empty tile." << std::endl;
+                curFrameMovement = Vector2{ curFrameMovement.x, -curFrameMovement.y } *-1.0f;
+                curFrameVel = Vector2{ curFrameVel.x, -curFrameVel.y } *-1.0f;
+            }
+            if (IsTileFilledWithCollider(*mut_tm, nextPlayerTileCoordIndexY, totalTilesX)) {
+                //std::cout << "Moving into an empty tile." << std::endl;
+                curFrameMovement = Vector2{ -curFrameMovement.x, curFrameMovement.y } *-1.0f;
+                curFrameVel = Vector2{ -curFrameVel.x, curFrameVel.y } *-1.0f;
+            }
 
-        playerCharacter_mut->position.pos += curFrameMovement;
-        playerCharacter_mut->velocity.vel = curFrameVel;
+            playerCharacter_mut->position.pos += curFrameMovement;
+            playerCharacter_mut->velocity.vel = curFrameVel;
 
-        playerCharacterStates_mut->running = Vector2Length(playerCharacter_mut->velocity.vel) != 0.0f;
-        playerCharacterStates_mut->idle = Vector2Length(playerCharacter_mut->velocity.vel) == 0.0f;
+            playerCharacterStates_mut->running = Vector2Length(playerCharacter_mut->velocity.vel) != 0.0f;
+            playerCharacterStates_mut->idle = Vector2Length(playerCharacter_mut->velocity.vel) == 0.0f;
+
+#pragma endregion
+
+#pragma region Dead?
+
+            if (playerCharacter_mut->health <= 0.0f) {
+                std::cout << e_Player.name() << " is DEAD!!!" << std::endl;
+
+                e_Player.destruct();
+                playerIsDead = true;
+            }
 
 #pragma endregion
 
 #pragma region Handle Player Attack
 
-        if (calculateAttack) {
+            if (calculateAttack) {
+
+                for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
+
+                    auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
+                    BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
+                    Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
+
+                    Rectangle curGoblinWorldBB = Rectangle{ curGoblinCharacter->position.pos.x - curGoblinBB2D->reducedBoundingBoxForSprite.width * 0.5f, curGoblinCharacter->position.pos.y - curGoblinBB2D->reducedBoundingBoxForSprite.height * 0.5f
+                                                            , curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinBB2D->reducedBoundingBoxForSprite.height };
+
+                    if (doDebugPrint) {
+                        std::cout << "2 := " << curGoblinWorldBB.x << ", " << curGoblinWorldBB.y << ", " << curGoblinWorldBB.width << ", " << curGoblinWorldBB.height << std::endl;
+                    }
+
+                    Rectangle playerWorldAttackBB = Rectangle{ playerCharacter_mut->position.pos.x , playerCharacter_mut->position.pos.y , 0.0f, 0.0f };
+
+                    if (playerCharacterStates_mut->attackingSide) {
+                        //std::cout << "Attacked side" << std::endl;
+                        if (playerCharacter_mut->facingDirection.x < 0.0f) {
+                            playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x * -4.0f;
+                        }
+                        else {
+                            playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x;
+                        }
+                        playerWorldAttackBB.y += playerCharacter_mut->attackSideOverlapRect.y;
+                        playerWorldAttackBB.width = playerCharacter_mut->attackSideOverlapRect.width;
+                        playerWorldAttackBB.height = playerCharacter_mut->attackSideOverlapRect.height;
+                    }
+                    else if (playerCharacterStates_mut->attackingDown) {
+                        //std::cout << "Attacked down" << std::endl;
+                        playerWorldAttackBB.x += playerCharacter_mut->attackDownOverlapRect.x;
+                        playerWorldAttackBB.y += playerCharacter_mut->attackDownOverlapRect.y;
+                        playerWorldAttackBB.width = playerCharacter_mut->attackDownOverlapRect.width;
+                        playerWorldAttackBB.height = playerCharacter_mut->attackDownOverlapRect.height;
+
+                    }
+                    else if (playerCharacterStates_mut->attackingUp) {
+                        //std::cout << "Attacked up" << std::endl;
+                        playerWorldAttackBB.x += playerCharacter_mut->attackUpOverlapRect.x;
+                        playerWorldAttackBB.y += playerCharacter_mut->attackUpOverlapRect.y;
+                        playerWorldAttackBB.width = playerCharacter_mut->attackUpOverlapRect.width;
+                        playerWorldAttackBB.height = playerCharacter_mut->attackUpOverlapRect.height;
+
+                    }
+
+                    if (CheckCollisionRecs(playerWorldAttackBB, curGoblinWorldBB)) {
+                        //std::cout << "Player and " << e_CurrentGoblin.name() << " collided!!!!" << std::endl;
+                        Vector2 knockBackDir = curGoblinCharacter->position.pos - Vector2{ nextPlayerPosX.x, nextPlayerPosY.y };
+                        knockBackDir = Vector2Normalize(knockBackDir);
+
+                        float knockBackStrength = 10.0f;
+                        ApplyKnockBackToGoblin(world, *mut_tm, curRoomIndexNextPlayerPos, i, knockBackDir * knockBackStrength, *camera);
+                        LoseHealth(world, *mut_tm, curRoomIndexNextPlayerPos, i);
+                        //curFrameMovement = knockBackDir * knockBackStrength;
+                        //std::cout << "Hit " << e_CurrentGoblin.name() << std::endl;
+                    }
+                }
+            }
+
+
+#pragma endregion
+
+#pragma region Goblin Stuff
+
+            curRoomIndexNextPlayerPos = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
+            MakeGoblinsMoveIt(world, *mut_tm, curRoomIndexNextPlayerPos, playerCharacter_mut->position.pos, Goblin::goblinSpeed, deltaTime, *camera);
+
+#pragma endregion
+
+#pragma region Update Animations Based On Current Data
+            UpdatePlayerAnimationGraphSystem.run();
+#pragma endregion
+
+#pragma region Camera Room Movement.
+
+            int numTilesYRounded = 7;
+            Vector2 offsetByTiles = Vector2{ numTilesX * tileScaleX, (numTilesYRounded * round(tileScaleY)) + 30.0f } *-0.5f;
+            Vector2 worldDistanceToOffsetBy = GetScreenToWorld2D(offsetByTiles, *measurementCamera);
+
+            Vector2 cameraScreenPos = GetWorldToScreen2D(camera->target, *camera);
+            Vector2 curFrameMovementInPixels = GetWorldToScreen2D(curFrameMovement, *camera);
+            Vector2 curRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPos, curFrameMovementInPixels) * Vector2 { 1.0f, 1.0 };
+            Vector2 cameraCurRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(camera->target, *camera), cameraScreenPos, curFrameMovementInPixels);
+
+            //std::cout << cameraCurRoomIndex.x << ", " << cameraCurRoomIndex.y << std::endl;
+
+            if (!Vector2Equals(curRoomIndex, cameraCurRoomIndex)) {
+
+                Vector2 curRoomIndexDifference = Vector2{ (curRoomIndex.x - cameraCurRoomIndex.x) * -1.0f, curRoomIndex.y - cameraCurRoomIndex.y };
+                Vector2 worldDistanceToOffsetCameraBy = curRoomIndexDifference * worldDistanceToOffsetBy;
+
+                camera->target = camera->target + worldDistanceToOffsetCameraBy;
+            }
+
+            //camera->target = playerCharacter_mut->position.pos;
+            camera->zoom += ((float)GetMouseWheelMove() * 0.05f);
+
+#pragma endregion
+
+#pragma region Draw To Screen.
+
+            BeginDrawing();
+
+            ClearBackground(RAYWHITE);
+
+
+            if (true)
+            {
+                rlEnableShader(simpleTileMapRenderingShader.id);
+
+                Vector2 cameraScreenPos = GetWorldToScreen2D(camera->target, *camera);
+                Vector2 cameraPos = camera->target;
+                Vector2 curFrameMovementInPixels = GetWorldToScreen2D(curFrameMovement, *camera);
+
+                SetShaderValue(simpleTileMapRenderingShader, cameraScreenPosInSimpleTileMapRenderingShader, &cameraScreenPos, SHADER_UNIFORM_VEC2);
+                SetShaderValue(simpleTileMapRenderingShader, cameraPosInSimpleTileMapRenderingShader, &cameraPos, SHADER_UNIFORM_VEC2);
+                SetShaderValue(simpleTileMapRenderingShader, movementInPixelsInSimpleTileMapRenderingShader, &curFrameMovementInPixels, SHADER_UNIFORM_VEC2);
+
+                rlBindShaderBuffer(tileMapTextureSpriteSheetDataSSBO, 3);
+
+                rlActiveTextureSlot(0);
+                rlEnableTexture(e_tileMapGround.get<TileMap>()->tilePallet.spriteSheetTexture.id);
+
+                rlEnableVertexArray(quadVAO);
+                rlDrawVertexArrayElements(0, 6, 0);
+
+                rlEnableVertexArray(0);
+
+                rlDisableShader();
+            }
+
+            BeginMode2D(*camera);
+
+            //SpriteSheetAnimationDrawingSystem.run();
+            //std::cout << "Before draw: " << playerCharacterStates_mut->attackingSide << std::endl;
+
+            GoblinAnimationGraphDrawingSystem.run();
+            PlayerAnimationGraphDrawingSystem.run();
+            //std::cout << "After draw: " << playerCharacterStates_mut->attackingSide << std::endl;
+
+
+            //float resolution = screenWidth / screenHeight;
+            //float width = screenWidth / 12;
+            //float height = width / resolution;
+            //Vector2 attackFacingDebugPos = curPlayerPos->pos + (curDirection * Vector2{ width, height });
+            //DrawRectangle(attackFacingDebugPos.x, attackFacingDebugPos.y, (int)width, (int)height, RED);
+
+            //DrawCircle(curPlayerPos->pos.x, curPlayerPos->pos.y, 10.0f, RED);
+            //DrawRectangleLines(playerCharacter_mut->position.pos.x - (width * 0.5f), playerCharacter_mut->position.pos.y - (height * 0.5f), width, height, RED);
+            float width = playerBB2D->reducedBoundingBoxForSprite.width;
+            float height = playerBB2D->reducedBoundingBoxForSprite.height;
+
+            float posX = playerCharacter_mut->position.pos.x + playerBB2D->reducedBoundingBoxForSprite.x;
+            float posY = playerCharacter_mut->position.pos.y + playerBB2D->reducedBoundingBoxForSprite.y;
+
+            DrawRectangleLines(posX, posY, width, height, RED);
+
+            //posY -= height;
+            //height *= 3.0f;
+            //posX += width;
+            //width *= 1.5f;
+
+            //DrawRectangleLines(posX, posY, width, height, RED);
+
+            Rectangle playerWorldAttackBB = Rectangle{ playerCharacter_mut->position.pos.x , playerCharacter_mut->position.pos.y , 0.0f, 0.0f };
+
+            if (playerCharacterStates_mut->attackingSide) {
+                //std::cout << "Attacked side" << std::endl;
+                //std::cout << playerCharacter_mut->facingDirection.x << std::endl;
+                if (playerCharacter_mut->facingDirection.x < 0.0f) {
+                    playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x * -4.0f;
+                }
+                else {
+                    playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x;
+                }
+                playerWorldAttackBB.y += playerCharacter_mut->attackSideOverlapRect.y;
+                playerWorldAttackBB.width = playerCharacter_mut->attackSideOverlapRect.width;
+                playerWorldAttackBB.height = playerCharacter_mut->attackSideOverlapRect.height;
+            }
+            else if (playerCharacterStates_mut->attackingDown) {
+                //std::cout << "Attacked down" << std::endl;
+                playerWorldAttackBB.x += playerCharacter_mut->attackDownOverlapRect.x;
+                playerWorldAttackBB.y += playerCharacter_mut->attackDownOverlapRect.y;
+                playerWorldAttackBB.width = playerCharacter_mut->attackDownOverlapRect.width;
+                playerWorldAttackBB.height = playerCharacter_mut->attackDownOverlapRect.height;
+
+            }
+            else if (playerCharacterStates_mut->attackingUp) {
+                //std::cout << "Attacked up" << std::endl;
+                playerWorldAttackBB.x += playerCharacter_mut->attackUpOverlapRect.x;
+                playerWorldAttackBB.y += playerCharacter_mut->attackUpOverlapRect.y;
+                playerWorldAttackBB.width = playerCharacter_mut->attackUpOverlapRect.width;
+                playerWorldAttackBB.height = playerCharacter_mut->attackUpOverlapRect.height;
+
+            }
+
+            DrawRectangleLines(playerWorldAttackBB.x, playerWorldAttackBB.y, playerWorldAttackBB.width, playerWorldAttackBB.height, RED);
+
 
             for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
 
@@ -607,241 +833,51 @@ int main(void)
 
                 Rectangle curGoblinWorldBB = Rectangle{ curGoblinCharacter->position.pos.x - curGoblinBB2D->reducedBoundingBoxForSprite.width * 0.5f, curGoblinCharacter->position.pos.y - curGoblinBB2D->reducedBoundingBoxForSprite.height * 0.5f
                                                         , curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinBB2D->reducedBoundingBoxForSprite.height };
-
                 if (doDebugPrint) {
-                    std::cout << "2 := " << curGoblinWorldBB.x << ", " << curGoblinWorldBB.y << ", " << curGoblinWorldBB.width << ", " << curGoblinWorldBB.height << std::endl;
+                    std::cout << "3 := " << curGoblinWorldBB.x << ", " << curGoblinWorldBB.y << ", " << curGoblinWorldBB.width << ", " << curGoblinWorldBB.height << std::endl;
                 }
 
-                Rectangle playerWorldAttackBB = Rectangle{ playerCharacter_mut->position.pos.x , playerCharacter_mut->position.pos.y , 0.0f, 0.0f };
+                DrawRectangleLines(curGoblinWorldBB.x, curGoblinWorldBB.y, curGoblinWorldBB.width, curGoblinWorldBB.height, RED);
 
-                if (playerCharacterStates_mut->attackingSide) {
-                    //std::cout << "Attacked side" << std::endl;
-                    if (playerCharacter_mut->facingDirection.x < 0.0f) {
-                        playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x * -4.0f;
-                    }
-                    else {
-                        playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x;
-                    }
-                    playerWorldAttackBB.y += playerCharacter_mut->attackSideOverlapRect.y;
-                    playerWorldAttackBB.width = playerCharacter_mut->attackSideOverlapRect.width;
-                    playerWorldAttackBB.height = playerCharacter_mut->attackSideOverlapRect.height;
-                }
-                else if (playerCharacterStates_mut->attackingDown) {
-                    //std::cout << "Attacked down" << std::endl;
-                    playerWorldAttackBB.x += playerCharacter_mut->attackDownOverlapRect.x;
-                    playerWorldAttackBB.y += playerCharacter_mut->attackDownOverlapRect.y;
-                    playerWorldAttackBB.width = playerCharacter_mut->attackDownOverlapRect.width;
-                    playerWorldAttackBB.height = playerCharacter_mut->attackDownOverlapRect.height;
-
-                }
-                else if (playerCharacterStates_mut->attackingUp) {
-                    //std::cout << "Attacked up" << std::endl;
-                    playerWorldAttackBB.x += playerCharacter_mut->attackUpOverlapRect.x;
-                    playerWorldAttackBB.y += playerCharacter_mut->attackUpOverlapRect.y;
-                    playerWorldAttackBB.width = playerCharacter_mut->attackUpOverlapRect.width;
-                    playerWorldAttackBB.height = playerCharacter_mut->attackUpOverlapRect.height;
-
-                }
-
-                if (CheckCollisionRecs(playerWorldAttackBB, curGoblinWorldBB)) {
-                    //std::cout << "Player and " << e_CurrentGoblin.name() << " collided!!!!" << std::endl;
-                    Vector2 knockBackDir = curGoblinCharacter->position.pos - Vector2{ nextPlayerPosX.x, nextPlayerPosY.y };
-                    knockBackDir = Vector2Normalize(knockBackDir);
-
-                    float knockBackStrength = 10.0f;
-                    ApplyKnockBackToGoblin(world, *mut_tm, curRoomIndexNextPlayerPos, i, knockBackDir * knockBackStrength, *camera);
-                    LoseHealth(world, *mut_tm, curRoomIndexNextPlayerPos, i);
-                    //curFrameMovement = knockBackDir * knockBackStrength;
-                    //std::cout << "Hit " << e_CurrentGoblin.name() << std::endl;
-                }
             }
-        }
 
+            for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
+
+                auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
+                Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
+                CharacterStates* curGoblinCharacterStates = e_CurrentGoblin.get_mut<CharacterStates>();
+
+                if (!curGoblinCharacter->attackDealtWith && curGoblinCharacterStates->attackingSide) {
+
+                    BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
+
+                    float offsetX = curGoblinCharacter->facingDirection.x > 0.0f ? curGoblinCharacter->attackSideOverlapRect.width * 0.5f : curGoblinCharacter->attackSideOverlapRect.width * -1.5f;
+                    Rectangle curGoblinSideAttackWorldBB = Rectangle{ curGoblinCharacter->position.pos.x + offsetX, curGoblinCharacter->position.pos.y - curGoblinCharacter->attackSideOverlapRect.height * 0.5f
+                                                            , curGoblinCharacter->attackSideOverlapRect.width, curGoblinCharacter->attackSideOverlapRect.height };
+
+                    DrawRectangleLines(curGoblinSideAttackWorldBB.x, curGoblinSideAttackWorldBB.y, curGoblinSideAttackWorldBB.width, curGoblinSideAttackWorldBB.height, RED);
+                }
+
+            }
+
+
+            EndMode2D();
+
+            DrawFPS(40, 40);
+
+            EndDrawing();
 
 #pragma endregion
 
-#pragma region Goblin Stuff
-
-        curRoomIndexNextPlayerPos = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPosNextPlayerPos, curFrameMovementInPixelsNextPlayerPos) * Vector2 { 1.0f, 1.0 };
-        MakeGoblinsMoveIt(world, *mut_tm, curRoomIndexNextPlayerPos, playerCharacter_mut->position.pos, Goblin::goblinSpeed, deltaTime, *camera);
-
-#pragma endregion
-
-#pragma region Update Animations Based On Current Data
-        UpdatePlayerAnimationGraphSystem.run();
-#pragma endregion
-
-#pragma region Camera Room Movement.
-
-        int numTilesYRounded = 7;
-        Vector2 offsetByTiles = Vector2{ numTilesX * tileScaleX, (numTilesYRounded * round(tileScaleY) ) + 30.0f } * -0.5f;
-        Vector2 worldDistanceToOffsetBy = GetScreenToWorld2D(offsetByTiles, *measurementCamera);
-
-        Vector2 cameraScreenPos = GetWorldToScreen2D(camera->target, *camera);
-        Vector2 curFrameMovementInPixels = GetWorldToScreen2D(curFrameMovement, *camera);
-        Vector2 curRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(playerCharacter_mut->position.pos, *camera), cameraScreenPos, curFrameMovementInPixels) * Vector2 { 1.0f, 1.0 };
-        Vector2 cameraCurRoomIndex = CurrentRoomIndex(GetWorldToScreen2D(camera->target, *camera), cameraScreenPos, curFrameMovementInPixels);
-
-        //std::cout << cameraCurRoomIndex.x << ", " << cameraCurRoomIndex.y << std::endl;
-
-        if (!Vector2Equals(curRoomIndex, cameraCurRoomIndex)) {
-
-            Vector2 curRoomIndexDifference = Vector2{ (curRoomIndex.x - cameraCurRoomIndex.x) * -1.0f, curRoomIndex.y - cameraCurRoomIndex.y };
-            Vector2 worldDistanceToOffsetCameraBy = curRoomIndexDifference * worldDistanceToOffsetBy;
-
-            camera->target = camera->target + worldDistanceToOffsetCameraBy;
+            previousMovementDirection = curFrameMovementDirection;
         }
 
-        //camera->target = playerCharacter_mut->position.pos;
-        camera->zoom += ((float)GetMouseWheelMove() * 0.05f);
-
-#pragma endregion
-
-#pragma region Draw To Screen.
-
-        BeginDrawing();
-
-        ClearBackground(RAYWHITE);
-
-
-        if(true)
-        {
-            rlEnableShader(simpleTileMapRenderingShader.id);
-
-            Vector2 cameraScreenPos = GetWorldToScreen2D(camera->target, *camera);
-            Vector2 cameraPos = camera->target;
-            Vector2 curFrameMovementInPixels = GetWorldToScreen2D(curFrameMovement, *camera);
-
-            SetShaderValue(simpleTileMapRenderingShader, cameraScreenPosInSimpleTileMapRenderingShader, &cameraScreenPos, SHADER_UNIFORM_VEC2);
-            SetShaderValue(simpleTileMapRenderingShader, cameraPosInSimpleTileMapRenderingShader, &cameraPos, SHADER_UNIFORM_VEC2);
-            SetShaderValue(simpleTileMapRenderingShader, movementInPixelsInSimpleTileMapRenderingShader, &curFrameMovementInPixels, SHADER_UNIFORM_VEC2);
-
-            rlBindShaderBuffer(tileMapTextureSpriteSheetDataSSBO, 3);
-
-            rlActiveTextureSlot(0);
-            rlEnableTexture(e_tileMapGround.get<TileMap>()->tilePallet.spriteSheetTexture.id);
-
-            rlEnableVertexArray(quadVAO);
-            rlDrawVertexArrayElements(0, 6, 0);
-
-            rlEnableVertexArray(0);
-
-            rlDisableShader();
+        if (playerIsDead) {
+            BeginDrawing();
+            ClearBackground(DARKPURPLE);
+            DrawText("THE KNIGHT IS DEAD!", screenWidth / 2 - 350.0f, screenHeight / 2, 56, RED);
+            EndDrawing();
         }
-
-        BeginMode2D(*camera);
-
-        //SpriteSheetAnimationDrawingSystem.run();
-        //std::cout << "Before draw: " << playerCharacterStates_mut->attackingSide << std::endl;
-
-        GoblinAnimationGraphDrawingSystem.run();
-        PlayerAnimationGraphDrawingSystem.run();
-        //std::cout << "After draw: " << playerCharacterStates_mut->attackingSide << std::endl;
-
-
-        //float resolution = screenWidth / screenHeight;
-        //float width = screenWidth / 12;
-        //float height = width / resolution;
-        //Vector2 attackFacingDebugPos = curPlayerPos->pos + (curDirection * Vector2{ width, height });
-        //DrawRectangle(attackFacingDebugPos.x, attackFacingDebugPos.y, (int)width, (int)height, RED);
-
-        //DrawCircle(curPlayerPos->pos.x, curPlayerPos->pos.y, 10.0f, RED);
-        //DrawRectangleLines(playerCharacter_mut->position.pos.x - (width * 0.5f), playerCharacter_mut->position.pos.y - (height * 0.5f), width, height, RED);
-        float width = playerBB2D->reducedBoundingBoxForSprite.width;
-        float height = playerBB2D->reducedBoundingBoxForSprite.height;
-
-        float posX = playerCharacter_mut->position.pos.x + playerBB2D->reducedBoundingBoxForSprite.x;
-        float posY = playerCharacter_mut->position.pos.y + playerBB2D->reducedBoundingBoxForSprite.y;
-
-        DrawRectangleLines(posX, posY, width, height, RED);
-
-        //posY -= height;
-        //height *= 3.0f;
-        //posX += width;
-        //width *= 1.5f;
-
-        //DrawRectangleLines(posX, posY, width, height, RED);
-
-        Rectangle playerWorldAttackBB = Rectangle{ playerCharacter_mut->position.pos.x , playerCharacter_mut->position.pos.y , 0.0f, 0.0f };
-
-        if (playerCharacterStates_mut->attackingSide) {
-            //std::cout << "Attacked side" << std::endl;
-            //std::cout << playerCharacter_mut->facingDirection.x << std::endl;
-            if (playerCharacter_mut->facingDirection.x < 0.0f) {
-                playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x * -4.0f;
-            }
-            else {
-                playerWorldAttackBB.x += playerCharacter_mut->attackSideOverlapRect.x;
-            }
-            playerWorldAttackBB.y += playerCharacter_mut->attackSideOverlapRect.y;
-            playerWorldAttackBB.width = playerCharacter_mut->attackSideOverlapRect.width;
-            playerWorldAttackBB.height = playerCharacter_mut->attackSideOverlapRect.height;
-        }
-        else if (playerCharacterStates_mut->attackingDown) {
-            //std::cout << "Attacked down" << std::endl;
-            playerWorldAttackBB.x += playerCharacter_mut->attackDownOverlapRect.x;
-            playerWorldAttackBB.y += playerCharacter_mut->attackDownOverlapRect.y;
-            playerWorldAttackBB.width = playerCharacter_mut->attackDownOverlapRect.width;
-            playerWorldAttackBB.height = playerCharacter_mut->attackDownOverlapRect.height;
-
-        }
-        else if (playerCharacterStates_mut->attackingUp) {
-            //std::cout << "Attacked up" << std::endl;
-            playerWorldAttackBB.x += playerCharacter_mut->attackUpOverlapRect.x;
-            playerWorldAttackBB.y += playerCharacter_mut->attackUpOverlapRect.y;
-            playerWorldAttackBB.width = playerCharacter_mut->attackUpOverlapRect.width;
-            playerWorldAttackBB.height = playerCharacter_mut->attackUpOverlapRect.height;
-
-        }
-
-        DrawRectangleLines(playerWorldAttackBB.x, playerWorldAttackBB.y, playerWorldAttackBB.width, playerWorldAttackBB.height, RED);
-
-
-        for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
-
-            auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
-            BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
-            Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
-
-            Rectangle curGoblinWorldBB = Rectangle{ curGoblinCharacter->position.pos.x - curGoblinBB2D->reducedBoundingBoxForSprite.width * 0.5f, curGoblinCharacter->position.pos.y - curGoblinBB2D->reducedBoundingBoxForSprite.height * 0.5f
-                                                    , curGoblinBB2D->reducedBoundingBoxForSprite.width, curGoblinBB2D->reducedBoundingBoxForSprite.height };
-            if (doDebugPrint) {
-                std::cout << "3 := " << curGoblinWorldBB.x << ", " << curGoblinWorldBB.y << ", " << curGoblinWorldBB.width << ", " << curGoblinWorldBB.height << std::endl;
-            }
-
-            DrawRectangleLines(curGoblinWorldBB.x, curGoblinWorldBB.y, curGoblinWorldBB.width, curGoblinWorldBB.height, RED);
-
-        }
-
-        for (int i = 0; i < tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom.size(); i++) {
-
-            auto e_CurrentGoblin = tm->roomsData[curRoomIndexNextPlayerPos.y][curRoomIndexNextPlayerPos.x].torchGoblinEntitiesInThisRoom[i];
-            Character* curGoblinCharacter = e_CurrentGoblin.get_mut<Character>();
-            CharacterStates* curGoblinCharacterStates = e_CurrentGoblin.get_mut<CharacterStates>();
-
-            if (!curGoblinCharacter->attackDealtWith && curGoblinCharacterStates->attackingSide) {
-
-                BoundingBox2D* curGoblinBB2D = e_CurrentGoblin.get_mut<BoundingBox2D>();
-
-                float offsetX = curGoblinCharacter->facingDirection.x > 0.0f ? curGoblinCharacter->attackSideOverlapRect.width * 0.5f : curGoblinCharacter->attackSideOverlapRect.width * -1.5f;
-                Rectangle curGoblinSideAttackWorldBB = Rectangle{ curGoblinCharacter->position.pos.x + offsetX, curGoblinCharacter->position.pos.y - curGoblinCharacter->attackSideOverlapRect.height * 0.5f
-                                                        , curGoblinCharacter->attackSideOverlapRect.width, curGoblinCharacter->attackSideOverlapRect.height };
-
-                DrawRectangleLines(curGoblinSideAttackWorldBB.x, curGoblinSideAttackWorldBB.y, curGoblinSideAttackWorldBB.width, curGoblinSideAttackWorldBB.height, RED);
-            }
-
-        }
-
-
-        EndMode2D();
-
-        DrawFPS(40, 40);
-
-        EndDrawing();
-
-#pragma endregion
-
-        previousMovementDirection = curFrameMovementDirection;
     }
 
     CloseWindow();        // Close window and OpenGL context
