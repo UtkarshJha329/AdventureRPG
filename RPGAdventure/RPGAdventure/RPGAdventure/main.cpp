@@ -560,8 +560,6 @@ int main(void)
             timeToMoveAfterEnemyTouch = GetTime() + timeOutForTouchingEnemy;
         }
 
-
-
         nextPlayerPosX = playerCharacter_mut->position.pos + Vector2{ curFrameMovement.x, 0.0f } *4.0f;
         nextPlayerPosY = playerCharacter_mut->position.pos + Vector2{ 0.0f, curFrameMovement.y } *4.0f;
         
@@ -652,6 +650,7 @@ int main(void)
 
                     float knockBackStrength = 10.0f;
                     ApplyKnockBackToGoblin(world, *mut_tm, curRoomIndexNextPlayerPos, i, knockBackDir * knockBackStrength, *camera);
+                    LoseHealth(world, *mut_tm, curRoomIndexNextPlayerPos, i);
                     //curFrameMovement = knockBackDir * knockBackStrength;
                     //std::cout << "Hit " << e_CurrentGoblin.name() << std::endl;
                 }

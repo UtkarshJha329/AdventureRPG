@@ -80,6 +80,7 @@ void SpawnGoblins(flecs::world& world, TileMapData& tmd, TileMap& tm, Camera2D& 
                 Character* goblin = e_torchGoblinEntity.get_mut<Character>();
 
                 goblin->attackTime = 2.0f;
+                goblin->health = 2.0f;
 
                 int numTilesYRounded = 7;
                 Vector2 tileRoomIndex = Vector2{ x / numTilesX, y / (float)numTilesYRounded };
@@ -248,6 +249,20 @@ void ApplyKnockBackToGoblin(flecs::world& world, TileMap& tm, Vector2 roomIndex,
     goblinCharacterStates_mut->running = false;
     goblinCharacterStates_mut->idle = true;
     goblinCharacterStates_mut->attackingSide = false;
+
+}
+
+void LoseHealth(flecs::world& world, TileMap& tm, Vector2 roomIndex, int goblinIndex) {
+
+    Character* goblinCharacter_mut = tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[goblinIndex].get_mut<Character>();
+    goblinCharacter_mut->health--;
+
+    if (goblinCharacter_mut->health <= 0.0f) {
+        std::cout << tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[goblinIndex].name() << " is DEAD!!!" << std::endl;
+
+        tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom[goblinIndex].destruct();
+        tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom.erase(tm.roomsData[roomIndex.y][roomIndex.x].torchGoblinEntitiesInThisRoom.begin() + goblinIndex);
+    }
 
 }
 

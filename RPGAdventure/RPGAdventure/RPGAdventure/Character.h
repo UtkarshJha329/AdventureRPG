@@ -16,6 +16,9 @@ public:
     
     float attackTime = 1.0f;
     float nextAttackTime = 0.0f;
+
+    float health = 1.0f;
+
     bool attackDealtWith = true;
 };
 
