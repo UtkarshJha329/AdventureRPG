@@ -299,6 +299,7 @@ int main(void)
 
 #pragma endregion
 
+    //SetConfigFlags(FLAG_FULLSCREEN_MODE);
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
 
     world.progress(GetFrameTime());
@@ -389,16 +390,25 @@ int main(void)
     std::string castleName = "Castle Of Peach";
     auto e_Castle = world.lookup(castleName.c_str());
 
+    //bool once = true;
     // VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV GAME LOOP VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
     while (!WindowShouldClose())
     {
+        //if (once) {
+        //    ToggleFullscreen();
+        //    once = false;
+        //}
         if (!playerIsDead && !won) {
 
             bool doDebugPrint = false;
             //std::cout << totalTilesX << ", " << totalTilesY << std::endl;
 
-            if (IsKeyPressed(KEY_ONE)) {
-                doDebugPrint = true;
+            //if (IsKeyPressed(KEY_ONE)) {
+            //    doDebugPrint = true;
+            //}
+
+            if (IsKeyPressed(KEY_F)) {
+                ToggleFullscreen();
             }
 
 #pragma region Get Component References.
