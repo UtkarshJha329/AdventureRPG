@@ -251,14 +251,19 @@ int main(void)
             UpdateAnimationGraphCurrentAnimation(animationGraph);
         });
 
-    auto GoblinAnimationGraphDrawingSystem = world.system<SpriteSheet, AnimationGraph, Character, Goblin>()
+    auto GoblinAnimationGraphDrawingSystem = world.system<SpriteSheet, AnimationGraph, Character, CharacterStates, Goblin>()
         .kind(flecs::OnUpdate)
-        .each([](flecs::iter& it, size_t, SpriteSheet& ss, AnimationGraph& animationGraph, Character& character, Goblin) {
+        .each([](flecs::iter& it, size_t, SpriteSheet& ss, AnimationGraph& animationGraph, Character& character, CharacterStates& characterStates, Goblin) {
             //std::cout << "Update Sprite Sheet Animation Drawing System." << std::endl;
             //spriteAnimation.curAnimationStateY = 5;
             Rectangle view = animationGraph.animations[animationGraph.currentAnimationPlaying].curFrameView;
             view.width *= character.facingDirection.x;
-            DrawTextureRec(ss.spriteSheetTexture, view, character.position.pos - Vector2{ss.cell.width * 0.5f, ss.cell.height * 0.5f}, WHITE);
+            if (characterStates.stunned) {
+                DrawTextureRec(ss.spriteSheetTexture, view, character.position.pos - Vector2{ss.cell.width * 0.5f, ss.cell.height * 0.5f}, RED);
+            }
+            else {
+                DrawTextureRec(ss.spriteSheetTexture, view, character.position.pos - Vector2{ss.cell.width * 0.5f, ss.cell.height * 0.5f}, WHITE);
+            }
         });
 
     auto PlayerAnimationGraphDrawingSystem = world.system<SpriteSheet, AnimationGraph, Character, Player>()

@@ -30,6 +30,10 @@ public:
     bool attackingUp = false;
     bool attackingDown = false;
     bool attackingSide = false;
+    bool stunned = false;
+
+    float clearStunnedTime = 0.0f;
+    float timeWillRemainStunned = 0.5f;
 };
 
 bool IsCharacterAttacking(CharacterStates& characterStates) {
