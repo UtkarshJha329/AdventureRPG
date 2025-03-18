@@ -27,3 +27,7 @@ const unsigned int torchGoblin_CharacterSpriteSheet_paddingX = 50;
 const unsigned int torchGoblin_CharacterSpriteSheet_paddingY = 50;
 
 const std::string roomsTileMapDataFileLoc = "Assets/Maps/";
+
+const std::string heartTextureLoc = "Assets/Heart.png";
+const unsigned int heartTexture_numSpriteCellsX = 1;
+const unsigned int heartTexture_numSpriteCellsY = 1;

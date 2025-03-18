@@ -107,6 +107,14 @@ int main(void)
     //auto e_roomTileMapData = world.entity("Tilemap Data");
     //e_roomTileMapData.add<TileMapData>();
 
+    auto e_Heart = world.entity("Heart UI");
+    e_Heart.add<TextureResource>();
+    e_Heart.add<SpriteSheet>();
+
+    e_Heart.set<TextureResource>({ heartTextureLoc, heartTexture_numSpriteCellsX, heartTexture_numSpriteCellsY, 0, 0 });
+
+    SpriteSheet* heartUISS = e_Heart.get_mut<SpriteSheet>();
+
     SpawnRooms(*mut_tm);
     FillTileMapDataFromFile(*mut_tmd);
     SpawnGoblins(world, *mut_tmd, *mut_tm, *measurementCamera);
@@ -142,7 +150,7 @@ int main(void)
         .each([](flecs::iter& it, size_t, Character& character, Player) {
         //std::cout << "Init Sprite Sheet System." << std::endl;
             
-            character.health = 2.0f;
+            character.health = 5.0f;
 
         });
 
@@ -863,6 +871,14 @@ int main(void)
 
             EndMode2D();
 
+            //DrawTexture(heartUISS->spriteSheetTexture, heartUISS->spriteSheetTexture.width, heartUISS->spriteSheetTexture.height, WHITE);
+            Rectangle heartRec = Rectangle{ 0.0f, 0.0f, (float)heartUISS->spriteSheetTexture.width, (float)heartUISS->spriteSheetTexture.height };
+            //DrawTextureRec(heartUISS->spriteSheetTexture, heartRec, Vector2{ heartRec.width, heartRec.height }, WHITE);
+            for (int i = 0; i < playerCharacter_mut->health; i++)
+            {
+                float padding = (heartRec.width) * 3.0f;
+                DrawTextureEx(heartUISS->spriteSheetTexture, Vector2{ (heartRec.width + padding) * i, heartRec.height }, 0.0f, 3.0f, WHITE);
+            }
             DrawFPS(40, 40);
 
             EndDrawing();
